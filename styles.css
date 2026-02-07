@@ -1,8 +1,9 @@
-/*
+/* Minima – Obsidian-side styles */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
-
-If your plugin does not need CSS, delete this file.
-
-*/
+/* Ribbon icon subtle pulse on hover */
+.side-dock-ribbon-action[aria-label="Toggle Minima"] {
+	transition: color 0.15s ease;
+}
+.side-dock-ribbon-action[aria-label="Toggle Minima"]:hover {
+	color: var(--interactive-accent);
+}

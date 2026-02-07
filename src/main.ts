@@ -1,99 +1,99 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { Notice, Plugin } from "obsidian";
+import { MinimaSettings, DEFAULT_SETTINGS, MinimaSettingTab } from "./settings";
+import { MinimaTray } from "./tray";
+import { MinimaWindow } from "./note-window";
 
-// Remember to rename these classes and interfaces!
-
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class MinimaPlugin extends Plugin {
+	settings: MinimaSettings;
+	private tray: MinimaTray | null = null;
+	private noteWindow: MinimaWindow | null = null;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const vaultPath: string = (this.app.vault.adapter as any).basePath;
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
+		// ── Note window ────────────────────────────────────────
+		console.log("Minima: Creating note window…");
+		this.noteWindow = new MinimaWindow(this.settings, vaultPath);
+		const windowOk = this.noteWindow.create();
+		console.log("Minima: Note window creation result:", windowOk);
 
-		// This adds a simple command that can be triggered anywhere
+		if (!windowOk) {
+			new Notice("Minima: Could not create the note window — check the console (Ctrl+Shift+I) for details.");
+		}
+
+		// ── System tray ────────────────────────────────────────
+		console.log("Minima: Creating system tray…");
+		this.tray = new MinimaTray(
+			() => this.noteWindow?.toggle(),
+			() => this.noteWindow?.hide(),
+		);
+
+		const trayOk = this.tray.create();
+		console.log("Minima: Tray creation result:", trayOk);
+
+		if (!trayOk) {
+			new Notice("Minima: Could not create the system tray icon — check the console (Ctrl+Shift+I) for details.");
+		}
+
+		// ── Commands ───────────────────────────────────────────
 		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
+			id: "toggle-minima-window",
+			name: "Toggle Minima window",
+			callback: () => this.noteWindow?.toggle(),
 		});
-		// This adds an editor command that can perform some operation on the current editor instance
+
 		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-				return false;
-			}
+			id: "show-minima-window",
+			name: "Show Minima window",
+			callback: () => this.noteWindow?.show(),
 		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
+		// ── Ribbon icon ────────────────────────────────────────
+		this.addRibbonIcon("pencil", "Toggle Minima", () => {
+			this.noteWindow?.toggle();
 		});
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
+		// ── Settings tab ───────────────────────────────────────
+		this.addSettingTab(new MinimaSettingTab(this.app, this));
 	}
 
 	onunload() {
+		if (this.noteWindow) {
+			const latest = this.noteWindow.getSettings();
+			Object.assign(this.settings, latest);
+		}
+
+		this.noteWindow?.destroy();
+		this.noteWindow = null;
+
+		this.tray?.destroy();
+		this.tray = null;
+
+		this.saveSettings();
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData() as Partial<MinimaSettings>,
+		);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
-}
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
+	/** Reload the note window content (e.g. after changing the selected note). */
+	reloadNoteWindow(): void {
+		this.noteWindow?.loadContent();
 	}
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+	/** Called from the settings tab to live-update the window. */
+	updateWindowAlwaysOnTop(value: boolean): void {
+		this.noteWindow?.setAlwaysOnTop(value);
 	}
 }

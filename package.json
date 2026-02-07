@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-minima",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "A minimal companion for quick note-taking — lives in your menu bar.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {

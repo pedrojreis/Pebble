@@ -17,9 +17,11 @@ const context = await esbuild.context({
 	},
 	entryPoints: ["src/main.ts"],
 	bundle: true,
+	loader: { ".css": "text" },
 	external: [
 		"obsidian",
 		"electron",
+		"@electron/remote",
 		"@codemirror/autocomplete",
 		"@codemirror/collab",
 		"@codemirror/commands",
