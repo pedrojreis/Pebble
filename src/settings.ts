@@ -12,8 +12,6 @@ export interface MinimaSettings {
 	alwaysOnTop: boolean;
 	windowWidth: number;
 	windowHeight: number;
-	windowX: number | null;
-	windowY: number | null;
 }
 
 export const DEFAULT_SETTINGS: MinimaSettings = {
@@ -21,8 +19,6 @@ export const DEFAULT_SETTINGS: MinimaSettings = {
 	alwaysOnTop: true,
 	windowWidth: 340,
 	windowHeight: 440,
-	windowX: null,
-	windowY: null,
 };
 
 /**

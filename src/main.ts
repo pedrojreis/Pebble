@@ -94,19 +94,6 @@ export default class MinimaPlugin extends Plugin {
 	 * Safe to call multiple times — skips creation when resources are alive.
 	 */
 	private createPluginResources(): void {
-		if (!this.noteWindow) {
-			console.debug("Minima: Creating note window…");
-			this.noteWindow = new MinimaWindow(this.settings, this.vaultPath);
-			const windowOk = this.noteWindow.create();
-			console.debug("Minima: Note window creation result:", windowOk);
-
-			if (!windowOk) {
-				new Notice(
-					"Minima: Could not create the note window — check the console (Ctrl+Shift+I) for details.",
-				);
-			}
-		}
-
 		if (!this.tray) {
 			console.debug("Minima: Creating system tray…");
 			this.tray = new MinimaTray(
@@ -123,6 +110,23 @@ export default class MinimaPlugin extends Plugin {
 			if (!trayOk) {
 				new Notice(
 					"Minima: Could not create the system tray icon — check the console (Ctrl+Shift+I) for details.",
+				);
+			}
+		}
+
+		if (!this.noteWindow) {
+			console.debug("Minima: Creating note window…");
+			this.noteWindow = new MinimaWindow(
+				this.settings,
+				this.vaultPath,
+				() => this.tray?.getBounds() ?? null,
+			);
+			const windowOk = this.noteWindow.create();
+			console.debug("Minima: Note window creation result:", windowOk);
+
+			if (!windowOk) {
+				new Notice(
+					"Minima: Could not create the note window — check the console (Ctrl+Shift+I) for details.",
 				);
 			}
 		}

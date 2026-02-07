@@ -6,6 +6,10 @@ import * as path from "path";
 import * as fs from "fs";
 import noteWindowCss from "./note-window.css";
 
+/** Padding added around the panel for the arrow and drop-shadow. */
+const ARROW_HEIGHT = 10;
+const SHADOW_PADDING = 16;
+
 /** CSS variables extracted from the live Obsidian window. */
 interface ObsidianThemeVars {
 	backgroundPrimary: string;
@@ -21,16 +25,30 @@ interface ObsidianThemeVars {
 	scrollbarActive: string;
 }
 
+/** Callback to retrieve the tray icon's screen bounds. */
+type TrayBoundsGetter = () => {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+} | null;
+
 export class MinimaWindow {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private win: any = null;
 	private settings: MinimaSettings;
 	private vaultPath: string;
 	private isDestroying = false;
+	private getTrayBounds: TrayBoundsGetter | null;
 
-	constructor(settings: MinimaSettings, vaultPath: string) {
+	constructor(
+		settings: MinimaSettings,
+		vaultPath: string,
+		getTrayBounds?: TrayBoundsGetter,
+	) {
 		this.settings = settings;
 		this.vaultPath = vaultPath;
+		this.getTrayBounds = getTrayBounds ?? null;
 	}
 
 	/** Absolute path to the selected vault note. */
@@ -62,15 +80,18 @@ export class MinimaWindow {
 
 		const { BrowserWindow } = remote;
 
-		const x = this.settings.windowX ?? undefined;
-		const y = this.settings.windowY ?? undefined;
+		// The BrowserWindow is larger than the visible panel to make room
+		// for the CSS arrow and drop-shadow rendered on a transparent canvas.
+		const outerWidth = this.settings.windowWidth + 2 * SHADOW_PADDING;
+		const outerHeight =
+			this.settings.windowHeight + ARROW_HEIGHT + SHADOW_PADDING;
 
 		this.win = new BrowserWindow({
-			width: this.settings.windowWidth,
-			height: this.settings.windowHeight,
-			x,
-			y,
+			width: outerWidth,
+			height: outerHeight,
 			frame: false,
+			transparent: true,
+			hasShadow: false,
 			alwaysOnTop: this.settings.alwaysOnTop,
 			skipTaskbar: true,
 			resizable: true,
@@ -78,8 +99,6 @@ export class MinimaWindow {
 			maximizable: false,
 			fullscreenable: false,
 			show: false,
-			hasShadow: true,
-			roundedCorners: true,
 			webPreferences: {
 				nodeIntegration: true,
 				contextIsolation: false,
@@ -109,12 +128,11 @@ export class MinimaWindow {
 			}
 		});
 
-		// Persist window bounds on move/resize
+		// Persist panel size on resize
 		const debouncedSaveBounds = debounce(
 			() => this.saveWindowBounds(),
 			500,
 		);
-		this.win.on("moved", debouncedSaveBounds);
 		this.win.on("resized", debouncedSaveBounds);
 
 		return true;
@@ -160,13 +178,64 @@ export class MinimaWindow {
 		if (!this.win) return;
 		try {
 			const bounds = this.win.getBounds();
-			this.settings.windowWidth = bounds.width;
-			this.settings.windowHeight = bounds.height;
-			this.settings.windowX = bounds.x;
-			this.settings.windowY = bounds.y;
+			// Store the logical panel size (minus the transparent padding)
+			this.settings.windowWidth = bounds.width - 2 * SHADOW_PADDING;
+			this.settings.windowHeight =
+				bounds.height - ARROW_HEIGHT - SHADOW_PADDING;
 		} catch {
 			// Window may already be destroyed
 		}
+	}
+
+	/**
+	 * Position the window directly below the tray icon with the arrow
+	 * pointing at it. Clamps to screen edges and adjusts the arrow
+	 * offset so it always points at the icon centre.
+	 */
+	private positionNearTray(): void {
+		if (!this.win || !this.getTrayBounds) return;
+
+		const trayBounds = this.getTrayBounds();
+		if (!trayBounds) return;
+
+		const remote = getRemote();
+		if (!remote) return;
+
+		const { screen } = remote;
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+		const display = screen.getDisplayNearestPoint({
+			x: trayBounds.x,
+			y: trayBounds.y,
+		});
+		const workArea = display.workArea;
+
+		const winSize: number[] = this.win.getSize();
+		const winWidth = winSize[0] ?? this.settings.windowWidth;
+
+		// Centre horizontally under the tray icon
+		const trayCenterX = Math.round(trayBounds.x + trayBounds.width / 2);
+		let x = trayCenterX - Math.round(winWidth / 2);
+		const y = trayBounds.y + trayBounds.height + 4; // small gap below menu bar
+
+		// Clamp to screen edges
+		const rightEdge = workArea.x + workArea.width;
+		if (x + winWidth > rightEdge) x = rightEdge - winWidth;
+		if (x < workArea.x) x = workArea.x;
+
+		this.win.setPosition(x, y);
+
+		// Adjust arrow so it still points at the tray icon center
+		const arrowX = trayCenterX - x;
+		const arrowPercent = Math.max(
+			10,
+			Math.min(90, (arrowX / winWidth) * 100),
+		);
+
+		this.win.webContents
+			.executeJavaScript(
+				`document.documentElement.style.setProperty('--arrow-offset','${arrowPercent}%')`,
+			)
+			.catch(() => {});
 	}
 
 	toggle(): void {
@@ -180,6 +249,7 @@ export class MinimaWindow {
 		} else {
 			// Re-read file content each time we show, in case it was edited in Obsidian
 			this.loadContent();
+			this.positionNearTray();
 			this.win.show();
 			this.win.focus();
 		}
@@ -188,6 +258,7 @@ export class MinimaWindow {
 	show(): void {
 		if (this.win) {
 			this.loadContent();
+			this.positionNearTray();
 			this.win.show();
 			this.win.focus();
 		}
@@ -254,22 +325,27 @@ ${noteWindowCss}
 </style>
 </head>
 <body>
-<div class="titlebar">
-	<div class="title">Minima</div>
-	<div class="titlebar-buttons">
-		${hasNote ? `<button id="btn-md" class="tb-btn" title="Toggle markdown"><svg width="16" height="10" viewBox="0 0 208 128" fill="currentColor"><path d="M30 98V30h20l20 25 20-25h20v68H90V59L70 84 50 59v39zm125 0l-30-33h20V30h20v35h20z"/></svg></button>` : ""}
-		<button id="btn-close" class="tb-btn btn-close" title="Close">&times;</button>
-	</div>
-</div>
+<div class="window-frame">
+	<div class="arrow"></div>
+	<div class="panel">
+		<div class="titlebar">
+			<div class="title">Minima</div>
+			<div class="titlebar-buttons">
+				${hasNote ? `<button id="btn-md" class="tb-btn" title="Toggle markdown"><svg width="16" height="10" viewBox="0 0 208 128" fill="currentColor"><path d="M30 98V30h20l20 25 20-25h20v68H90V59L70 84 50 59v39zm125 0l-30-33h20V30h20v35h20z"/></svg></button>` : ""}
+				<button id="btn-close" class="tb-btn btn-close" title="Close">&times;</button>
+			</div>
+		</div>
 ${
 	hasNote
-		? `<textarea id="editor" placeholder="Start typing\u2026" spellcheck="true"></textarea>
-	   <div id="preview" class="preview hidden"></div>`
-		: `<div class="no-note">
-		<p>No note selected.</p>
-		<p class="hint">Go to <strong>Settings \u2192 Minima</strong> to pick a note.</p>
-	</div>`
+		? `		<textarea id="editor" placeholder="Start typing\u2026" spellcheck="true"></textarea>
+		<div id="preview" class="preview hidden"></div>`
+		: `		<div class="no-note">
+			<p>No note selected.</p>
+			<p class="hint">Go to <strong>Settings \u2192 Minima</strong> to pick a note.</p>
+		</div>`
 }
+	</div>
+</div>
 
 <script>
 ${noteWindowScript(configJSON)}

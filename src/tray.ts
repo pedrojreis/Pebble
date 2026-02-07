@@ -141,6 +141,22 @@ export class MinimaTray {
 		}
 	}
 
+	/** Return the tray icon's screen coordinates so the window can anchor to it. */
+	getBounds(): {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null {
+		if (!this.tray) return null;
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+			return this.tray.getBounds();
+		} catch {
+			return null;
+		}
+	}
+
 	destroy(): void {
 		if (this.tray) {
 			try {
