@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 
 /**
  * Safely access the Electron remote module from within an Obsidian plugin.
@@ -14,23 +15,25 @@ export function getRemote(): any {
 
 	try {
 		cachedRemote = require("@electron/remote");
-		console.log("Minima: loaded @electron/remote successfully");
+		console.debug("Minima: loaded @electron/remote successfully");
 		return cachedRemote;
 	} catch (e1) {
-		console.log("Minima: @electron/remote not available:", e1);
+		console.debug("Minima: @electron/remote not available:", e1);
 		try {
 			const electron = require("electron");
 			if (electron.remote) {
 				cachedRemote = electron.remote;
-				console.log("Minima: loaded electron.remote fallback");
+				console.debug("Minima: loaded electron.remote fallback");
 				return cachedRemote;
 			}
-			console.log("Minima: electron.remote is undefined");
+			console.debug("Minima: electron.remote is undefined");
 		} catch (e2) {
-			console.log("Minima: electron module also failed:", e2);
+			console.debug("Minima: electron module also failed:", e2);
 		}
 	}
 
-	console.error("Minima: No Electron remote module found. Tray/window features disabled.");
+	console.error(
+		"Minima: No Electron remote module found. Tray/window features disabled.",
+	);
 	return null;
 }

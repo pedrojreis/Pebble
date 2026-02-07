@@ -2,57 +2,84 @@ import { Notice, Plugin } from "obsidian";
 import { MinimaSettings, DEFAULT_SETTINGS, MinimaSettingTab } from "./settings";
 import { MinimaTray } from "./tray";
 import { MinimaWindow } from "./note-window";
+import { getRemote } from "./electron-utils";
 
 export default class MinimaPlugin extends Plugin {
 	settings: MinimaSettings;
 	private tray: MinimaTray | null = null;
 	private noteWindow: MinimaWindow | null = null;
+	private vaultPath = "";
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private mainWindow: any = null;
+	private boundHandlers: {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		target: any;
+		event: string;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		handler: (...args: any[]) => void;
+	}[] = [];
 
 	async onload() {
 		await this.loadSettings();
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const vaultPath: string = (this.app.vault.adapter as any).basePath;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+		this.vaultPath = (this.app.vault.adapter as any).basePath;
 
-		// ── Note window ────────────────────────────────────────
-		console.log("Minima: Creating note window…");
-		this.noteWindow = new MinimaWindow(this.settings, vaultPath);
-		const windowOk = this.noteWindow.create();
-		console.log("Minima: Note window creation result:", windowOk);
-
-		if (!windowOk) {
-			new Notice("Minima: Could not create the note window — check the console (Ctrl+Shift+I) for details.");
+		// Get Electron main-window reference for lifecycle management
+		const remote = getRemote();
+		if (remote) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+			this.mainWindow = remote.getCurrentWindow();
 		}
 
-		// ── System tray ────────────────────────────────────────
-		console.log("Minima: Creating system tray…");
-		this.tray = new MinimaTray(
-			() => this.noteWindow?.toggle(),
-			() => this.noteWindow?.hide(),
-		);
+		// ── Create plugin resources (note window + tray) ───────
+		this.createPluginResources();
 
-		const trayOk = this.tray.create();
-		console.log("Minima: Tray creation result:", trayOk);
+		// ── Electron lifecycle management ──────────────────────
+		// On macOS, clicking the window's close button hides the main
+		// window instead of quitting.  If our child BrowserWindow stays
+		// alive it prevents the app from properly reactivating when the
+		// user clicks the dock icon.  Fix: destroy our resources when
+		// the main window closes/hides and recreate them when the main
+		// window becomes visible again.
+		if (this.mainWindow) {
+			this.addElectronListener(this.mainWindow, "close", () => {
+				console.debug(
+					"Minima: Main window closing — destroying plugin resources",
+				);
+				this.destroyPluginResources();
+			});
 
-		if (!trayOk) {
-			new Notice("Minima: Could not create the system tray icon — check the console (Ctrl+Shift+I) for details.");
+			this.addElectronListener(this.mainWindow, "show", () => {
+				console.debug(
+					"Minima: Main window shown — recreating plugin resources",
+				);
+				this.createPluginResources();
+			});
 		}
 
 		// ── Commands ───────────────────────────────────────────
 		this.addCommand({
-			id: "toggle-minima-window",
-			name: "Toggle Minima window",
-			callback: () => this.noteWindow?.toggle(),
+			id: "toggle-window",
+			name: "Toggle window",
+			callback: () => {
+				this.ensurePluginResources();
+				this.noteWindow?.toggle();
+			},
 		});
 
 		this.addCommand({
-			id: "show-minima-window",
-			name: "Show Minima window",
-			callback: () => this.noteWindow?.show(),
+			id: "show-window",
+			name: "Show window",
+			callback: () => {
+				this.ensurePluginResources();
+				this.noteWindow?.show();
+			},
 		});
 
 		// ── Ribbon icon ────────────────────────────────────────
-		this.addRibbonIcon("pencil", "Toggle Minima", () => {
+		this.addRibbonIcon("pencil", "Toggle note window", () => {
+			this.ensurePluginResources();
 			this.noteWindow?.toggle();
 		});
 
@@ -60,7 +87,51 @@ export default class MinimaPlugin extends Plugin {
 		this.addSettingTab(new MinimaSettingTab(this.app, this));
 	}
 
-	onunload() {
+	// ── Resource lifecycle helpers ─────────────────────────────
+
+	/**
+	 * Create the note window and system tray if they don't already exist.
+	 * Safe to call multiple times — skips creation when resources are alive.
+	 */
+	private createPluginResources(): void {
+		if (!this.noteWindow) {
+			console.debug("Minima: Creating note window…");
+			this.noteWindow = new MinimaWindow(this.settings, this.vaultPath);
+			const windowOk = this.noteWindow.create();
+			console.debug("Minima: Note window creation result:", windowOk);
+
+			if (!windowOk) {
+				new Notice(
+					"Minima: Could not create the note window — check the console (Ctrl+Shift+I) for details.",
+				);
+			}
+		}
+
+		if (!this.tray) {
+			console.debug("Minima: Creating system tray…");
+			this.tray = new MinimaTray(
+				() => {
+					this.ensurePluginResources();
+					this.noteWindow?.toggle();
+				},
+				() => this.noteWindow?.hide(),
+			);
+
+			const trayOk = this.tray.create();
+			console.debug("Minima: Tray creation result:", trayOk);
+
+			if (!trayOk) {
+				new Notice(
+					"Minima: Could not create the system tray icon — check the console (Ctrl+Shift+I) for details.",
+				);
+			}
+		}
+	}
+
+	/**
+	 * Destroy the note window and system tray, persisting settings first.
+	 */
+	private destroyPluginResources(): void {
 		if (this.noteWindow) {
 			const latest = this.noteWindow.getSettings();
 			Object.assign(this.settings, latest);
@@ -72,14 +143,54 @@ export default class MinimaPlugin extends Plugin {
 		this.tray?.destroy();
 		this.tray = null;
 
-		this.saveSettings();
+		void this.saveSettings();
+	}
+
+	/**
+	 * Ensure resources exist.  Called from commands / ribbon / tray
+	 * callbacks because resources may have been torn down when the
+	 * main Obsidian window was hidden (macOS close-button flow).
+	 */
+	private ensurePluginResources(): void {
+		this.createPluginResources();
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private addElectronListener(
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		target: any,
+		event: string,
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		handler: (...args: any[]) => void,
+	): void {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+		target.on(event, handler);
+		this.boundHandlers.push({ target, event, handler });
+	}
+
+	private removeAllElectronListeners(): void {
+		for (const { target, event, handler } of this.boundHandlers) {
+			try {
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+				target.removeListener(event, handler);
+			} catch {
+				/* ignore */
+			}
+		}
+		this.boundHandlers = [];
+	}
+
+	onunload() {
+		this.removeAllElectronListeners();
+		this.destroyPluginResources();
+		this.mainWindow = null;
 	}
 
 	async loadSettings() {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			await this.loadData() as Partial<MinimaSettings>,
+			(await this.loadData()) as Partial<MinimaSettings>,
 		);
 	}
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import { getRemote } from "./electron-utils";
 import { MinimaSettings } from "./settings";
 import { Notice } from "obsidian";
@@ -26,7 +27,6 @@ export class MinimaWindow {
 	private settings: MinimaSettings;
 	private vaultPath: string;
 	private isDestroying = false;
-	private beforeQuitHandler: (() => void) | null = null;
 
 	constructor(settings: MinimaSettings, vaultPath: string) {
 		this.settings = settings;
@@ -55,6 +55,7 @@ export class MinimaWindow {
 	create(): boolean {
 		const remote = getRemote();
 		if (!remote) {
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			new Notice("Minima: Electron remote module is not available.");
 			return false;
 		}
@@ -90,7 +91,10 @@ export class MinimaWindow {
 			const remoteMain = remote.require("@electron/remote/main");
 			remoteMain.enable(this.win.webContents);
 		} catch (e) {
-			console.log("Minima: Could not enable remote for child window:", e);
+			console.debug(
+				"Minima: Could not enable remote for child window:",
+				e,
+			);
 		}
 
 		this.loadContent();
@@ -112,15 +116,6 @@ export class MinimaWindow {
 		);
 		this.win.on("moved", debouncedSaveBounds);
 		this.win.on("resized", debouncedSaveBounds);
-
-		// Ensure the child window doesn't prevent Obsidian from quitting.
-		// Without this, closing Obsidian leaves an orphan Electron process
-		// that blocks reopening the app.
-		const app = remote.app;
-		this.beforeQuitHandler = () => {
-			this.destroy();
-		};
-		app.on("before-quit", this.beforeQuitHandler);
 
 		return true;
 	}
@@ -176,10 +171,10 @@ export class MinimaWindow {
 
 	toggle(): void {
 		if (!this.win) {
-			console.log("Minima: toggle() called but win is null");
+			console.debug("Minima: toggle() called but win is null");
 			return;
 		}
-		console.log("Minima: toggle(), visible:", this.win.isVisible());
+		console.debug("Minima: toggle(), visible:", this.win.isVisible());
 		if (this.win.isVisible()) {
 			this.win.hide();
 		} else {
@@ -213,22 +208,6 @@ export class MinimaWindow {
 	destroy(): void {
 		if (this.isDestroying) return;
 		this.isDestroying = true;
-
-		// Remove the before-quit listener so we don't leak or re-enter
-		if (this.beforeQuitHandler) {
-			try {
-				const remote = getRemote();
-				if (remote) {
-					remote.app.removeListener(
-						"before-quit",
-						this.beforeQuitHandler,
-					);
-				}
-			} catch {
-				/* ignore */
-			}
-			this.beforeQuitHandler = null;
-		}
 
 		if (this.win) {
 			try {

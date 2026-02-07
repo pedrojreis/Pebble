@@ -1,4 +1,10 @@
-import { App, PluginSettingTab, Setting, TFile, FuzzySuggestModal } from "obsidian";
+import {
+	App,
+	PluginSettingTab,
+	Setting,
+	TFile,
+	FuzzySuggestModal,
+} from "obsidian";
 import type MinimaPlugin from "./main";
 
 export interface MinimaSettings {
@@ -56,28 +62,27 @@ export class MinimaSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "Minima" });
-
 		// ── Note picker ────────────────────────────────────────
 		const noteSetting = new Setting(containerEl)
 			.setName("Note")
-			.setDesc("The Obsidian note that Minima reads and writes to.");
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
+			.setDesc("The vault note that Minima reads and writes to.");
 
 		const noteDisplay = noteSetting.controlEl.createEl("span", {
 			text: this.plugin.settings.notePath || "None selected",
-			cls: "minima-note-path",
+			cls: this.plugin.settings.notePath
+				? "minima-note-path has-note"
+				: "minima-note-path",
 		});
-		noteDisplay.style.marginRight = "8px";
-		noteDisplay.style.opacity = this.plugin.settings.notePath ? "1" : "0.5";
 
 		noteSetting.addButton((btn) =>
 			btn.setButtonText("Choose").onClick(() => {
-				new NotePickerModal(this.app, async (file) => {
+				new NotePickerModal(this.app, (file) => {
 					this.plugin.settings.notePath = file.path;
-					await this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.reloadNoteWindow();
 					noteDisplay.setText(file.path);
-					noteDisplay.style.opacity = "1";
+					noteDisplay.classList.add("has-note");
 				}).open();
 			}),
 		);
@@ -85,6 +90,7 @@ export class MinimaSettingTab extends PluginSettingTab {
 		// ── Always on top ──────────────────────────────────────
 		new Setting(containerEl)
 			.setName("Always on top")
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			.setDesc("Keep the note window above other windows.")
 			.addToggle((toggle) =>
 				toggle

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import { getRemote } from "./electron-utils";
 import { Platform } from "obsidian";
 import { FALLBACK_ICON_DATA_URL } from "./assets/fallback-icon";
@@ -24,7 +25,9 @@ export class MinimaTray {
 	create(): boolean {
 		const remote = getRemote();
 		if (!remote) {
-			console.error("Minima: getRemote() returned null — cannot create tray");
+			console.error(
+				"Minima: getRemote() returned null — cannot create tray",
+			);
 			return false;
 		}
 
@@ -32,7 +35,11 @@ export class MinimaTray {
 
 		// Destroy any leftover tray from a previous load cycle
 		if (activeTray) {
-			try { activeTray.destroy(); } catch { /* already gone */ }
+			try {
+				activeTray.destroy();
+			} catch {
+				/* already gone */
+			}
 			activeTray = null;
 		}
 
@@ -87,12 +94,12 @@ export class MinimaTray {
 
 			// Outer gem silhouette (Obsidian crystal shape)
 			ctx.beginPath();
-			ctx.moveTo(16, 1);   // top vertex
-			ctx.lineTo(27, 9);   // upper-right
-			ctx.lineTo(24, 25);  // lower-right
-			ctx.lineTo(16, 31);  // bottom vertex
-			ctx.lineTo(8, 25);   // lower-left
-			ctx.lineTo(5, 9);    // upper-left
+			ctx.moveTo(16, 1); // top vertex
+			ctx.lineTo(27, 9); // upper-right
+			ctx.lineTo(24, 25); // lower-right
+			ctx.lineTo(16, 31); // bottom vertex
+			ctx.lineTo(8, 25); // lower-left
+			ctx.lineTo(5, 9); // upper-left
 			ctx.closePath();
 			ctx.fill();
 
@@ -126,7 +133,9 @@ export class MinimaTray {
 			return icon.resize({ width: 18, height: 18 });
 		} catch (e) {
 			console.error("Minima: Icon creation failed, using fallback:", e);
-			const fallback = nativeImage.createFromDataURL(FALLBACK_ICON_DATA_URL);
+			const fallback = nativeImage.createFromDataURL(
+				FALLBACK_ICON_DATA_URL,
+			);
 			fallback.setTemplateImage(true);
 			return fallback;
 		}
@@ -134,7 +143,11 @@ export class MinimaTray {
 
 	destroy(): void {
 		if (this.tray) {
-			try { this.tray.destroy(); } catch { /* already gone */ }
+			try {
+				this.tray.destroy();
+			} catch {
+				/* already gone */
+			}
 			if (activeTray === this.tray) activeTray = null;
 			this.tray = null;
 		}
