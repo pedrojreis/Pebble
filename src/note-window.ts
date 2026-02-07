@@ -98,13 +98,18 @@ export class MinimaWindow {
 		// Hide when the window loses focus (click outside)
 		this.win.on("blur", () => {
 			if (this.win && this.win.isVisible()) {
-				this.win.webContents.executeJavaScript("__minimaSave()").catch(() => {});
+				this.win.webContents
+					.executeJavaScript("__minimaSave()")
+					.catch(() => {});
 				this.win.hide();
 			}
 		});
 
 		// Persist window bounds on move/resize
-		const debouncedSaveBounds = debounce(() => this.saveWindowBounds(), 500);
+		const debouncedSaveBounds = debounce(
+			() => this.saveWindowBounds(),
+			500,
+		);
 		this.win.on("moved", debouncedSaveBounds);
 		this.win.on("resized", debouncedSaveBounds);
 
@@ -133,11 +138,17 @@ export class MinimaWindow {
 			textFaint: v("--text-faint", "#999999"),
 			textMuted: v("--text-muted", "#666666"),
 			textAccent: v("--text-accent", "#705dcf"),
-			fontText: v("--font-text", "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"),
+			fontText: v(
+				"--font-text",
+				"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+			),
 			fontTextSize: v("--font-text-size", "16px"),
 			borderColor: v("--background-modifier-border", "#ddd"),
 			scrollbarThumb: v("--scrollbar-thumb-bg", "rgba(128,128,128,0.2)"),
-			scrollbarActive: v("--scrollbar-active-thumb-bg", "rgba(128,128,128,0.35)"),
+			scrollbarActive: v(
+				"--scrollbar-active-thumb-bg",
+				"rgba(128,128,128,0.35)",
+			),
 		};
 	}
 
@@ -145,7 +156,9 @@ export class MinimaWindow {
 	loadContent(): void {
 		if (!this.win) return;
 		const html = this.buildHTML();
-		this.win.loadURL(`data:text/html;base64,${Buffer.from(html).toString("base64")}`);
+		this.win.loadURL(
+			`data:text/html;base64,${Buffer.from(html).toString("base64")}`,
+		);
 	}
 
 	private saveWindowBounds(): void {
@@ -206,21 +219,32 @@ export class MinimaWindow {
 			try {
 				const remote = getRemote();
 				if (remote) {
-					remote.app.removeListener("before-quit", this.beforeQuitHandler);
+					remote.app.removeListener(
+						"before-quit",
+						this.beforeQuitHandler,
+					);
 				}
-			} catch { /* ignore */ }
+			} catch {
+				/* ignore */
+			}
 			this.beforeQuitHandler = null;
 		}
 
 		if (this.win) {
 			try {
 				// Save before destroying
-				this.win.webContents.executeJavaScript("__minimaSave && __minimaSave()").catch(() => {});
-			} catch { /* ignore */ }
+				this.win.webContents
+					.executeJavaScript("__minimaSave && __minimaSave()")
+					.catch(() => {});
+			} catch {
+				/* ignore */
+			}
 			try {
 				this.win.removeAllListeners();
 				this.win.destroy();
-			} catch { /* ignore */ }
+			} catch {
+				/* ignore */
+			}
 			this.win = null;
 		}
 	}
@@ -254,14 +278,15 @@ ${noteWindowCss}
 <div class="titlebar">
 	<div class="title">Minima</div>
 	<div class="titlebar-buttons">
-		${hasNote ? `<button id="btn-md" class="tb-btn" title="Toggle markdown"><svg width="16" height="10" viewBox="0 0 208 128" fill="currentColor"><path d="M30 98V30h20l20 25 20-25h20v68H90V59L70 84 50 59v39zm125 0l-30-33h20V30h20v35h20z"/></svg></button>` : ''}
+		${hasNote ? `<button id="btn-md" class="tb-btn" title="Toggle markdown"><svg width="16" height="10" viewBox="0 0 208 128" fill="currentColor"><path d="M30 98V30h20l20 25 20-25h20v68H90V59L70 84 50 59v39zm125 0l-30-33h20V30h20v35h20z"/></svg></button>` : ""}
 		<button id="btn-close" class="tb-btn btn-close" title="Close">&times;</button>
 	</div>
 </div>
-${hasNote
-	? `<textarea id="editor" placeholder="Start typing\u2026" spellcheck="true"></textarea>
+${
+	hasNote
+		? `<textarea id="editor" placeholder="Start typing\u2026" spellcheck="true"></textarea>
 	   <div id="preview" class="preview hidden"></div>`
-	: `<div class="no-note">
+		: `<div class="no-note">
 		<p>No note selected.</p>
 		<p class="hint">Go to <strong>Settings \u2192 Minima</strong> to pick a note.</p>
 	</div>`
