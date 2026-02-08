@@ -1,14 +1,13 @@
 import { Notice, Plugin } from "obsidian";
 import { MinimaSettings, DEFAULT_SETTINGS, MinimaSettingTab } from "./settings";
 import { MinimaTray } from "./tray";
-import { MinimaWindow } from "./note-window";
+import { NativeWindow } from "./native-window";
 import { getRemote } from "./electron-utils";
 
 export default class MinimaPlugin extends Plugin {
 	settings: MinimaSettings;
 	private tray: MinimaTray | null = null;
-	private noteWindow: MinimaWindow | null = null;
-	private vaultPath = "";
+	private noteWindow: NativeWindow | null = null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private mainWindow: any = null;
 	private boundHandlers: {
@@ -21,9 +20,6 @@ export default class MinimaPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-		this.vaultPath = (this.app.vault.adapter as any).basePath;
 
 		// Get Electron main-window reference for lifecycle management
 		const remote = getRemote();
@@ -64,7 +60,7 @@ export default class MinimaPlugin extends Plugin {
 			name: "Toggle window",
 			callback: () => {
 				this.ensurePluginResources();
-				this.noteWindow?.toggle();
+				void this.noteWindow?.toggle();
 			},
 		});
 
@@ -73,14 +69,14 @@ export default class MinimaPlugin extends Plugin {
 			name: "Show window",
 			callback: () => {
 				this.ensurePluginResources();
-				this.noteWindow?.show();
+				void this.noteWindow?.show();
 			},
 		});
 
 		// ── Ribbon icon ────────────────────────────────────────
 		this.addRibbonIcon("pencil", "Toggle note window", () => {
 			this.ensurePluginResources();
-			this.noteWindow?.toggle();
+			void this.noteWindow?.toggle();
 		});
 
 		// ── Settings tab ───────────────────────────────────────
@@ -99,7 +95,7 @@ export default class MinimaPlugin extends Plugin {
 			this.tray = new MinimaTray(
 				() => {
 					this.ensurePluginResources();
-					this.noteWindow?.toggle();
+					void this.noteWindow?.toggle();
 				},
 				() => this.noteWindow?.hide(),
 			);
@@ -115,20 +111,15 @@ export default class MinimaPlugin extends Plugin {
 		}
 
 		if (!this.noteWindow) {
-			console.debug("Minima: Creating note window…");
-			this.noteWindow = new MinimaWindow(
+			console.debug("Minima: Creating native note window…");
+			this.noteWindow = new NativeWindow(
+				this.app,
 				this.settings,
-				this.vaultPath,
 				() => this.tray?.getBounds() ?? null,
 			);
-			const windowOk = this.noteWindow.create();
-			console.debug("Minima: Note window creation result:", windowOk);
-
-			if (!windowOk) {
-				new Notice(
-					"Minima: Could not create the note window — check the console (Ctrl+Shift+I) for details.",
-				);
-			}
+			// Close any stale popout from previous session (Obsidian may restore them)
+			this.noteWindow.closeStalePopouts();
+			console.debug("Minima: Native window instance created");
 		}
 	}
 
@@ -204,7 +195,9 @@ export default class MinimaPlugin extends Plugin {
 
 	/** Reload the note window content (e.g. after changing the selected note). */
 	reloadNoteWindow(): void {
-		this.noteWindow?.loadContent();
+		// Close the current window so the next toggle opens with the new note
+		this.noteWindow?.destroy();
+		this.noteWindow = null;
 	}
 
 	/** Called from the settings tab to live-update the window. */

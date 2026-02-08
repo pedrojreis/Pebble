@@ -331,14 +331,12 @@ ${noteWindowCss}
 		<div class="titlebar">
 			<div class="title">Minima</div>
 			<div class="titlebar-buttons">
-				${hasNote ? `<button id="btn-md" class="tb-btn" title="Toggle markdown"><svg width="16" height="10" viewBox="0 0 208 128" fill="currentColor"><path d="M30 98V30h20l20 25 20-25h20v68H90V59L70 84 50 59v39zm125 0l-30-33h20V30h20v35h20z"/></svg></button>` : ""}
 				<button id="btn-close" class="tb-btn btn-close" title="Close">&times;</button>
 			</div>
 		</div>
 ${
 	hasNote
-		? `		<textarea id="editor" placeholder="Start typing\u2026" spellcheck="true"></textarea>
-		<div id="preview" class="preview hidden"></div>`
+		? `		<div id="live-editor" class="live-editor" contenteditable="true" spellcheck="true" data-placeholder="Start typing\u2026"></div>`
 		: `		<div class="no-note">
 			<p>No note selected.</p>
 			<p class="hint">Go to <strong>Settings \u2192 Minima</strong> to pick a note.</p>
@@ -368,6 +366,7 @@ function noteWindowScript(configJSON: string): string {
 	var notePath = CONFIG.notePath;
 	var hasNote  = CONFIG.hasNote;
 	var saveTimer = null;
+	var rawMarkdown = CONFIG.initialContent;
 
 	applyTheme();
 
@@ -406,48 +405,283 @@ function noteWindowScript(configJSON: string): string {
 		return;
 	}
 
-	var editor = document.getElementById("editor");
-	var preview = document.getElementById("preview");
-	var btnMd = document.getElementById("btn-md");
-	var isPreview = true;
+	var editor = document.getElementById("live-editor");
 
-	editor.value = CONFIG.initialContent;
+	// Render initial markdown content
+	editor.innerHTML = renderMarkdown(rawMarkdown);
+	updatePlaceholder();
 
-	// Start in preview mode (rendered markdown)
-	preview.innerHTML = renderMarkdown(editor.value);
-	editor.style.display = "none";
-	preview.classList.remove("hidden");
+	// -- Live markdown conversion patterns --
+	var markdownPatterns = [
+		// Bold: **text** or __text__
+		{ pattern: /\\*\\*([^*]+)\\*\\*/, replacement: function(m, text) { return "<strong>" + text + "</strong>"; } },
+		{ pattern: /__([^_]+)__/, replacement: function(m, text) { return "<strong>" + text + "</strong>"; } },
+		// Italic: *text* or _text_ (but not inside words for underscore)
+		{ pattern: /(?<!\\*)\\*([^*]+)\\*(?!\\*)/, replacement: function(m, text) { return "<em>" + text + "</em>"; } },
+		{ pattern: /(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])/, replacement: function(m, text) { return "<em>" + text + "</em>"; } },
+		// Inline code: \`code\`
+		{ pattern: /\\\`([^\\\`]+)\\\`/, replacement: function(m, code) { return "<code>" + code + "</code>"; } },
+		// Strikethrough: ~~text~~
+		{ pattern: /~~([^~]+)~~/, replacement: function(m, text) { return "<s>" + text + "</s>"; } }
+	];
 
-	// -- Markdown toggle --
-	if (btnMd) {
-		btnMd.addEventListener("click", function() {
-			isPreview = !isPreview;
-			if (isPreview) {
-				// Switch to preview mode
-				saveData();
-				preview.innerHTML = renderMarkdown(editor.value);
-				editor.style.display = "none";
-				preview.classList.remove("hidden");
-				btnMd.classList.remove("active");
-			} else {
-				// Switch to markdown edit mode
-				preview.classList.add("hidden");
-				editor.style.display = "";
-				btnMd.classList.add("active");
-				editor.focus();
+	// -- Live editing with markdown rendering --
+	editor.addEventListener("input", function(e) {
+		// Try to convert markdown patterns in real-time
+		convertLiveMarkdown();
+		scheduleSave();
+		updatePlaceholder();
+	});
+
+	// -- Convert markdown as you type --
+	function convertLiveMarkdown() {
+		var sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0) return;
+		
+		var range = sel.getRangeAt(0);
+		var node = range.startContainer;
+		
+		// Only process text nodes
+		if (node.nodeType !== Node.TEXT_NODE) return;
+		
+		var text = node.textContent;
+		var cursorOffset = range.startOffset;
+		
+		// Try each pattern
+		for (var i = 0; i < markdownPatterns.length; i++) {
+			var p = markdownPatterns[i];
+			var match = text.match(p.pattern);
+			
+			if (match) {
+				var matchStart = match.index;
+				var matchEnd = matchStart + match[0].length;
+				
+				// Only convert if cursor is at or after the end of the match
+				if (cursorOffset >= matchEnd) {
+					var beforeMatch = text.substring(0, matchStart);
+					var afterMatch = text.substring(matchEnd);
+					var replacement = p.replacement(match[0], match[1]);
+					
+					// Create the new structure
+					var parent = node.parentNode;
+					var frag = document.createDocumentFragment();
+					
+					if (beforeMatch) {
+						frag.appendChild(document.createTextNode(beforeMatch));
+					}
+					
+					// Create element from replacement HTML
+					var temp = document.createElement("span");
+					temp.innerHTML = replacement;
+					while (temp.firstChild) {
+						frag.appendChild(temp.firstChild);
+					}
+					
+					// Add a zero-width space after to allow typing after the formatted element
+					var afterText = document.createTextNode(afterMatch || "\\u200B");
+					frag.appendChild(afterText);
+					
+					// Replace the text node
+					parent.replaceChild(frag, node);
+					
+					// Position cursor after the formatted element
+					var newRange = document.createRange();
+					newRange.setStart(afterText, afterMatch ? 0 : 1);
+					newRange.collapse(true);
+					sel.removeAllRanges();
+					sel.addRange(newRange);
+					
+					return; // Only process one pattern per input
+				}
 			}
-		});
+		}
 	}
 
-	// -- Simple markdown renderer --
+	function updatePlaceholder() {
+		if (editor.textContent.trim() === "") {
+			editor.classList.add("empty");
+		} else {
+			editor.classList.remove("empty");
+		}
+	}
+
+	// Handle key events for better markdown experience
+	editor.addEventListener("keydown", function(e) {
+		if (e.key === "Enter") {
+			e.preventDefault();
+			
+			// Check if we're at the start of a line for heading conversion
+			var sel = window.getSelection();
+			if (sel && sel.rangeCount > 0) {
+				var range = sel.getRangeAt(0);
+				var node = range.startContainer;
+				
+				// Check for heading pattern in current text node
+				if (node.nodeType === Node.TEXT_NODE) {
+					var text = node.textContent;
+					var headingMatch = text.match(/^(#{1,6})\\s+(.*)$/);
+					
+					if (headingMatch) {
+						var level = headingMatch[1].length;
+						var content = headingMatch[2];
+						
+						// Create heading element
+						var heading = document.createElement("h" + level);
+						heading.textContent = content;
+						
+						// Replace text node with heading
+						var parent = node.parentNode;
+						parent.replaceChild(heading, node);
+						
+						// Add a new line after
+						var br = document.createElement("br");
+						if (heading.nextSibling) {
+							parent.insertBefore(br, heading.nextSibling);
+						} else {
+							parent.appendChild(br);
+						}
+						
+						// Position cursor on the new line
+						var newRange = document.createRange();
+						newRange.setStartAfter(br);
+						newRange.collapse(true);
+						sel.removeAllRanges();
+						sel.addRange(newRange);
+						return;
+					}
+					
+					// Check for list pattern
+					var listMatch = text.match(/^[-*+]\\s+(.*)$/);
+					if (listMatch) {
+						var listContent = listMatch[1];
+						
+						// Check if there's already a UL parent
+						var ul = node.parentNode.closest("ul");
+						if (!ul) {
+							ul = document.createElement("ul");
+							var li = document.createElement("li");
+							li.textContent = listContent;
+							ul.appendChild(li);
+							node.parentNode.replaceChild(ul, node);
+							
+							// Add new list item
+							var newLi = document.createElement("li");
+							newLi.innerHTML = "\\u200B";
+							ul.appendChild(newLi);
+							
+							var newRange = document.createRange();
+							newRange.setStart(newLi, 0);
+							newRange.collapse(true);
+							sel.removeAllRanges();
+							sel.addRange(newRange);
+							return;
+						}
+					}
+				}
+			}
+			
+			// Default: insert line break
+			document.execCommand("insertLineBreak");
+		}
+	});
+
+	// Handle paste - convert to plain text then render
+	editor.addEventListener("paste", function(e) {
+		e.preventDefault();
+		var text = (e.clipboardData || window.clipboardData).getData("text/plain");
+		document.execCommand("insertText", false, text);
+	});
+
+	// -- Extract plain text/markdown from contenteditable --
+	function extractMarkdown() {
+		// Get the inner HTML and convert back to markdown-ish plain text
+		var html = editor.innerHTML;
+		
+		// Replace <br> with newlines
+		html = html.replace(/<br\\s*\\/?>/gi, "\\n");
+		
+		// Replace block elements with newlines
+		html = html.replace(/<\\/div>/gi, "\\n");
+		html = html.replace(/<\\/p>/gi, "\\n");
+		html = html.replace(/<div[^>]*>/gi, "");
+		html = html.replace(/<p[^>]*>/gi, "");
+		
+		// Handle headings - extract markdown syntax
+		html = html.replace(/<h1[^>]*>(.*?)<\\/h1>/gi, "# $1\\n");
+		html = html.replace(/<h2[^>]*>(.*?)<\\/h2>/gi, "## $1\\n");
+		html = html.replace(/<h3[^>]*>(.*?)<\\/h3>/gi, "### $1\\n");
+		html = html.replace(/<h4[^>]*>(.*?)<\\/h4>/gi, "#### $1\\n");
+		html = html.replace(/<h5[^>]*>(.*?)<\\/h5>/gi, "##### $1\\n");
+		html = html.replace(/<h6[^>]*>(.*?)<\\/h6>/gi, "###### $1\\n");
+		
+		// Handle lists
+		html = html.replace(/<li[^>]*>(.*?)<\\/li>/gi, "- $1\\n");
+		html = html.replace(/<\\/?[uo]l[^>]*>/gi, "");
+		
+		// Handle blockquotes
+		html = html.replace(/<blockquote[^>]*><p[^>]*>(.*?)<\\/p><\\/blockquote>/gi, "> $1\\n");
+		html = html.replace(/<blockquote[^>]*>(.*?)<\\/blockquote>/gi, "> $1\\n");
+		
+		// Handle code blocks
+		html = html.replace(/<pre[^>]*><code[^>]*>(.*?)<\\/code><\\/pre>/gis, function(m, code) {
+			var decoded = code.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+			return "\\\`\\\`\\\`\\n" + decoded + "\\n\\\`\\\`\\\`\\n";
+		});
+		
+		// Handle inline code
+		html = html.replace(/<code[^>]*>(.*?)<\\/code>/gi, "\\\`$1\\\`");
+		
+		// Handle strikethrough
+		html = html.replace(/<s[^>]*>(.*?)<\\/s>/gi, "~~$1~~");
+		
+		// Handle strong/bold
+		html = html.replace(/<strong[^>]*>(.*?)<\\/strong>/gi, "**$1**");
+		html = html.replace(/<b[^>]*>(.*?)<\\/b>/gi, "**$1**");
+		
+		// Handle emphasis/italic
+		html = html.replace(/<em[^>]*>(.*?)<\\/em>/gi, "*$1*");
+		html = html.replace(/<i[^>]*>(.*?)<\\/i>/gi, "*$1*");
+		
+		// Handle links
+		html = html.replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\\/a>/gi, "[$2]($1)");
+		
+		// Handle images
+		html = html.replace(/<img[^>]*alt="([^"]*)"[^>]*src="([^"]*)"[^>]*>/gi, "![$1]($2)");
+		html = html.replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, "![$2]($1)");
+		html = html.replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, "![]($1)");
+		
+		// Handle horizontal rules
+		html = html.replace(/<hr[^>]*>/gi, "---\\n");
+		
+		// Remove any remaining HTML tags
+		html = html.replace(/<[^>]+>/g, "");
+		
+		// Decode HTML entities
+		html = html.replace(/&nbsp;/g, " ");
+		html = html.replace(/\\u200B/g, ""); // Remove zero-width spaces
+		html = html.replace(/&lt;/g, "<");
+		html = html.replace(/&gt;/g, ">");
+		html = html.replace(/&amp;/g, "&");
+		html = html.replace(/&quot;/g, '"');
+		
+		// Clean up excessive newlines
+		html = html.replace(/\\n{3,}/g, "\\n\\n");
+		html = html.trim();
+		
+		return html;
+	}
+
+	// -- Simple markdown renderer for initial load --
 	function renderMarkdown(src) {
+		if (!src || src.trim() === "") return "";
+		
 		// Escape HTML
 		function esc(s) {
 			return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 		}
 
 		// Code blocks
-		src = src.replace(/\`\`\`([\\s\\S]*?)\`\`\`/g, function(m, code) {
+		src = src.replace(/\\\`\\\`\\\`([\\s\\S]*?)\\\`\\\`\\\`/g, function(m, code) {
 			return "<pre><code>" + esc(code.trim()) + "</code></pre>";
 		});
 
@@ -470,7 +704,7 @@ function noteWindowScript(configJSON: string): string {
 			if (hMatch) {
 				if (inList) { html.push("</" + listType + ">"); inList = false; }
 				var level = hMatch[1].length;
-				html.push("<h" + level + ">" + inline(hMatch[2]) + "</h" + level + ">");
+				html.push("<h" + level + ">" + inlineRender(hMatch[2]) + "</h" + level + ">");
 				continue;
 			}
 
@@ -485,7 +719,7 @@ function noteWindowScript(configJSON: string): string {
 			var bqMatch = line.match(/^>\\s?(.*)/);
 			if (bqMatch) {
 				if (inList) { html.push("</" + listType + ">"); inList = false; }
-				html.push("<blockquote><p>" + inline(bqMatch[1]) + "</p></blockquote>");
+				html.push("<blockquote><p>" + inlineRender(bqMatch[1]) + "</p></blockquote>");
 				continue;
 			}
 
@@ -496,7 +730,7 @@ function noteWindowScript(configJSON: string): string {
 					if (inList) html.push("</" + listType + ">");
 					html.push("<ul>"); inList = true; listType = "ul";
 				}
-				html.push("<li>" + inline(ulMatch[1]) + "</li>");
+				html.push("<li>" + inlineRender(ulMatch[1]) + "</li>");
 				continue;
 			}
 
@@ -507,7 +741,7 @@ function noteWindowScript(configJSON: string): string {
 					if (inList) html.push("</" + listType + ">");
 					html.push("<ol>"); inList = true; listType = "ol";
 				}
-				html.push("<li>" + inline(olMatch[1]) + "</li>");
+				html.push("<li>" + inlineRender(olMatch[1]) + "</li>");
 				continue;
 			}
 
@@ -516,28 +750,31 @@ function noteWindowScript(configJSON: string): string {
 
 			// Empty line
 			if (line.trim() === "") {
+				html.push("<br>");
 				continue;
 			}
 
-			// Paragraph
-			html.push("<p>" + inline(line) + "</p>");
+			// Paragraph - use div for better contenteditable behavior
+			html.push("<div>" + inlineRender(line) + "</div>");
 		}
 
 		if (inList) html.push("</" + listType + ">");
 		return html.join("");
 	}
 
-	// Inline markdown: bold, italic, code, links, images
-	function inline(text) {
+	// Inline markdown renderer: bold, italic, code, links, images, strikethrough
+	function inlineRender(text) {
 		// Inline code
-		text = text.replace(/\`([^\`]+)\`/g, function(m, c) {
+		text = text.replace(/\\\`([^\\\`]+)\\\`/g, function(m, c) {
 			return "<code>" + c.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") + "</code>";
 		});
 		// Images
 		text = text.replace(/!\\[([^\\]]*)]\\(([^)]+)\\)/g, '<img alt="$1" src="$2">');
 		// Links
 		text = text.replace(/\\[([^\\]]*)]\\(([^)]+)\\)/g, '<a href="$2">$1</a>');
-		// Bold
+		// Strikethrough
+		text = text.replace(/~~(.+?)~~/g, "<s>$1</s>");
+		// Bold (must come before italic)
 		text = text.replace(/\\*\\*(.+?)\\*\\*/g, "<strong>$1</strong>");
 		text = text.replace(/__(.+?)__/g, "<strong>$1</strong>");
 		// Italic
@@ -546,15 +783,17 @@ function noteWindowScript(configJSON: string): string {
 		return text;
 	}
 
-	// -- Auto-save --
-	editor.addEventListener("input", function() {
+	// -- Auto-save with debounce --
+	function scheduleSave() {
 		if (saveTimer) clearTimeout(saveTimer);
 		saveTimer = setTimeout(saveData, 400);
-	});
+	}
 
 	function saveData() {
 		try {
-			fs.writeFileSync(notePath, editor.value, "utf8");
+			var content = extractMarkdown();
+			fs.writeFileSync(notePath, content, "utf8");
+			rawMarkdown = content;
 		} catch (e) {
 			console.error("Minima: save failed", e);
 		}
