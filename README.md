@@ -35,10 +35,10 @@ Minima adds a small, always-accessible window anchored to your system tray. Poin
 
 ## Settings
 
-| Setting | Description | Default |
-|---------|-------------|---------|
-| **Note** | The vault note that Minima reads and writes to. | None |
-| **Always on top** | Keep the note window above other windows. | On |
+| Setting           | Description                                     | Default |
+| ----------------- | ----------------------------------------------- | ------- |
+| **Note**          | The vault note that Minima reads and writes to. | None    |
+| **Always on top** | Keep the note window above other windows.       | On      |
 
 ## Requirements
 
