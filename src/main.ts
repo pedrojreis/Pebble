@@ -9,6 +9,9 @@ export default class MinimaPlugin extends Plugin {
 	private noteWindow: NativeWindow | null = null;
 	private tray: MinimaTray | null = null;
 	private electronReady = false;
+	private didFinishLoadHandler: (() => void) | null = null;
+	private beforeUnloadHandler: (() => void) | null = null;
+	private beforeQuitHandler: (() => void) | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -34,12 +37,18 @@ export default class MinimaPlugin extends Plugin {
 		if (!remote) return;
 
 		const mainWindow = remote.getCurrentWindow();
-		mainWindow.webContents.once("did-finish-load", () => {
+
+		// Store handler reference so we can remove it on unload
+		this.didFinishLoadHandler = () => {
 			if (!this.electronReady) {
 				this.electronReady = true;
 				this.createResources();
 			}
-		});
+		};
+		mainWindow.webContents.once(
+			"did-finish-load",
+			this.didFinishLoadHandler,
+		);
 
 		if (mainWindow.webContents.isLoading()) return;
 		this.electronReady = true;
@@ -47,25 +56,90 @@ export default class MinimaPlugin extends Plugin {
 	}
 
 	private createResources(): void {
+		// Guard against duplicate creation
+		if (this.tray) return;
+
 		this.tray = new MinimaTray(
-			() => void this.noteWindow?.toggle(),
+			() => void this.noteWindow?.toggle(true),
 			() => this.noteWindow?.hide(),
 		);
 		this.tray.create();
+
+		// Register early cleanup handlers — onunload can fire too late for IPC
+		this.beforeUnloadHandler = () => {
+			this.tray?.destroy();
+		};
+		window.addEventListener("beforeunload", this.beforeUnloadHandler);
+
+		try {
+			const remote = getRemote();
+			if (remote) {
+				this.beforeQuitHandler = () => {
+					this.tray?.destroy();
+				};
+				remote.app.on("before-quit", this.beforeQuitHandler);
+			}
+		} catch {
+			/* ignore */
+		}
 
 		this.noteWindow = new NativeWindow(
 			this.app,
 			this.settings,
 			() => this.tray?.getBounds() ?? null,
 		);
-		this.noteWindow.closeStalePopouts();
+
+		// Clean up stale popout leaves once workspace is ready
+		this.app.workspace.onLayoutReady(() => {
+			this.noteWindow?.cleanupStaleLeaves();
+		});
 	}
 
 	private destroyResources(): void {
+		// Remove event listener if it hasn't fired yet
+		if (this.didFinishLoadHandler) {
+			try {
+				const remote = getRemote();
+				if (remote) {
+					const mainWindow = remote.getCurrentWindow();
+					mainWindow.webContents.off(
+						"did-finish-load",
+						this.didFinishLoadHandler,
+					);
+				}
+			} catch {
+				/* ignore */
+			}
+			this.didFinishLoadHandler = null;
+		}
+
+		// Remove beforeunload handler
+		if (this.beforeUnloadHandler) {
+			window.removeEventListener(
+				"beforeunload",
+				this.beforeUnloadHandler,
+			);
+			this.beforeUnloadHandler = null;
+		}
+
+		// Remove before-quit handler
+		if (this.beforeQuitHandler) {
+			try {
+				const remote = getRemote();
+				if (remote) {
+					remote.app.off("before-quit", this.beforeQuitHandler);
+				}
+			} catch {
+				/* ignore */
+			}
+			this.beforeQuitHandler = null;
+		}
+
 		this.noteWindow?.destroy();
 		this.noteWindow = null;
 		this.tray?.destroy();
 		this.tray = null;
+		this.electronReady = false;
 	}
 
 	reloadNoteWindow(): void {

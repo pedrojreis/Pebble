@@ -11,11 +11,15 @@ type BrowserWindow = {
 	focus(): void;
 	close(): void;
 	destroy(): void;
+	minimize(): void;
 	isVisible(): boolean;
 	isFocused(): boolean;
+	isDestroyed(): boolean;
+	isMinimized(): boolean;
 	setAlwaysOnTop(v: boolean): void;
 	setSize(w: number, h: number): void;
 	setPosition(x: number, y: number): void;
+	setParentWindow(parent: BrowserWindow | null): void;
 	getSize(): [number, number];
 	getBounds(): Bounds;
 	on(event: string, cb: () => void): void;
@@ -24,6 +28,12 @@ type BrowserWindow = {
 
 const PADDING = 16;
 
+/** Snapshot of the Obsidian main window state before Minima opens. */
+interface MainWindowState {
+	wasVisible: boolean;
+	wasMinimized: boolean;
+}
+
 export class NativeWindow {
 	private app: App;
 	private settings: MinimaSettings;
@@ -31,6 +41,8 @@ export class NativeWindow {
 	private leaf: WorkspaceLeaf | null = null;
 	private win: BrowserWindow | null = null;
 	private styled = false;
+	/** State of the Obsidian main window captured right before we open the popout. */
+	private mainWindowState: MainWindowState | null = null;
 
 	constructor(
 		app: App,
@@ -56,11 +68,55 @@ export class NativeWindow {
 		}
 	}
 
-	async toggle(): Promise<void> {
-		this.isVisible() ? this.hide() : await this.show();
+	async toggle(fromTray = false): Promise<void> {
+		if (this.isVisible()) {
+			this.hide();
+		} else {
+			await this.show(fromTray);
+		}
 	}
 
-	async show(): Promise<boolean> {
+	/**
+	 * Capture the current visibility state of the Obsidian main window
+	 * so we can restore it later (after opening/closing the popout).
+	 */
+	private snapshotMainWindow(): MainWindowState {
+		const remote = getRemote();
+		if (!remote) return { wasVisible: false, wasMinimized: false };
+		try {
+			const main = remote.getCurrentWindow() as BrowserWindow;
+			return {
+				wasVisible: main.isVisible() && !main.isMinimized(),
+				wasMinimized: main.isMinimized(),
+			};
+		} catch {
+			return { wasVisible: false, wasMinimized: false };
+		}
+	}
+
+	/**
+	 * Restore the Obsidian main window to the state captured by snapshotMainWindow.
+	 * If it wasn't visible before, hide it again. If it was minimized, minimize it.
+	 */
+	private restoreMainWindow(state: MainWindowState): void {
+		const remote = getRemote();
+		if (!remote) return;
+		try {
+			const main = remote.getCurrentWindow() as BrowserWindow;
+			if (!state.wasVisible && !state.wasMinimized) {
+				// Main window was hidden — hide it again
+				main.hide();
+			} else if (state.wasMinimized) {
+				// Main window was minimized — minimize it again
+				main.minimize();
+			}
+			// If it was visible and not minimized, leave it alone
+		} catch {
+			/* ignore */
+		}
+	}
+
+	async show(fromTray = false): Promise<boolean> {
 		const file = this.getFile();
 		if (!file) {
 			new Notice("Minima: Select a note in settings first");
@@ -83,6 +139,11 @@ export class NativeWindow {
 
 		const remote = getRemote();
 		if (!remote) return false;
+
+		// Snapshot main window state BEFORE creating the popout.
+		// getLeaf("window") activates the app which can show/un-minimize
+		// the main window — we'll restore it afterwards.
+		this.mainWindowState = this.snapshotMainWindow();
 
 		const before = new Set(
 			(remote.BrowserWindow.getAllWindows() as BrowserWindow[]).map(
@@ -107,6 +168,14 @@ export class NativeWindow {
 		}
 		if (!this.win) return false;
 
+		// Make window independent of Obsidian main window.
+		// This prevents macOS from focusing the main window when this one hides/closes.
+		try {
+			this.win.setParentWindow(null);
+		} catch {
+			/* not supported on this Electron version */
+		}
+
 		// Configure
 		this.win.setAlwaysOnTop(this.settings.alwaysOnTop);
 		this.win.setSize(
@@ -122,14 +191,52 @@ export class NativeWindow {
 		await sleep(50);
 		this.win.show();
 		this.win.focus();
+
+		// Restore main window to its original state.
+		// getLeaf("window") may have shown/activated it.
+		if (this.mainWindowState) {
+			this.restoreMainWindow(this.mainWindowState);
+		}
+
 		return true;
 	}
 
+	/**
+	 * Fully tear down the popout: detach the Obsidian leaf (so workspace
+	 * state won't restore it on next launch) and destroy the BrowserWindow.
+	 *
+	 * Restores the Obsidian main window to whatever state it was in before
+	 * Minima was opened (hidden stays hidden, minimized stays minimized).
+	 */
 	hide(): void {
+		const savedState = this.mainWindowState;
+
+		// Detach leaf first — removes it from Obsidian's workspace state
+		// so it won't be restored on next startup.
 		try {
-			this.win?.hide();
+			this.leaf?.detach();
 		} catch {
-			/* destroyed */
+			/* already detached */
+		}
+
+		// Destroy the BrowserWindow
+		try {
+			this.win?.destroy();
+		} catch {
+			/* already destroyed */
+		}
+
+		this.leaf = null;
+		this.win = null;
+		this.styled = false;
+		this.mainWindowState = null;
+
+		// Restore main window to its pre-Minima state.
+		// Destroying the popout may cause macOS to focus/show the main window.
+		if (savedState) {
+			setTimeout(() => {
+				this.restoreMainWindow(savedState);
+			}, 50);
 		}
 	}
 
@@ -179,7 +286,17 @@ export class NativeWindow {
 		if (!this.win) return;
 		this.win.on("blur", () => {
 			setTimeout(() => {
-				if (this.win && !this.win.isFocused()) this.hide();
+				try {
+					if (
+						this.win &&
+						!this.win.isDestroyed() &&
+						!this.win.isFocused()
+					) {
+						this.hide();
+					}
+				} catch {
+					/* destroyed between check */
+				}
 			}, 100);
 		});
 		this.win.on("closed", () => {
@@ -229,18 +346,35 @@ export class NativeWindow {
 		this.styled = false;
 	}
 
-	/** Close leftover popout windows from previous session */
-	closeStalePopouts(): void {
-		const remote = getRemote();
-		if (!remote) return;
-		const mainId = remote.getCurrentWindow().id as number;
-		for (const w of remote.BrowserWindow.getAllWindows() as BrowserWindow[]) {
-			if (w.id !== mainId) {
-				try {
-					w.close();
-				} catch {
-					/* closed */
+	/**
+	 * Clean up any stale popout leaves from a previous session
+	 * that show the Minima note. Called on startup after workspace is ready.
+	 */
+	cleanupStaleLeaves(): void {
+		const notePath = this.settings.notePath;
+		if (!notePath) return;
+
+		const leavesToDetach: WorkspaceLeaf[] = [];
+		this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
+			try {
+				// Only target leaves outside the main window (i.e. popout windows)
+				if (leaf.getRoot() === this.app.workspace.rootSplit) return;
+
+				const viewState = leaf.getViewState();
+				if (viewState?.state?.file === notePath) {
+					leavesToDetach.push(leaf);
 				}
+			} catch {
+				/* ignore */
+			}
+		});
+
+		// Detach outside the iteration to avoid modifying during traversal
+		for (const leaf of leavesToDetach) {
+			try {
+				leaf.detach();
+			} catch {
+				/* ignore */
 			}
 		}
 	}

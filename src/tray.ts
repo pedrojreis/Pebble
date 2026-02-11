@@ -4,12 +4,23 @@ import { Platform } from "obsidian";
 import { FALLBACK_ICON_DATA_URL } from "./assets/fallback-icon";
 
 /**
- * Keep a module-level reference to the tray so we can destroy
- * any leftover instance from a previous plugin load cycle
- * (e.g. Obsidian hot-reload, settings change, crash recovery).
+ * Use a global (window-level) reference for the tray so it survives
+ * module scope resets during plugin hot-reload or re-enable cycles.
+ * Module-level variables are lost when esbuild re-evaluates the bundle.
  */
+const TRAY_GLOBAL_KEY = "__minima_active_tray__";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let activeTray: any = null;
+function getGlobalTray(): any {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+	return (window as any)[TRAY_GLOBAL_KEY] ?? null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function setGlobalTray(tray: any): void {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	(window as any)[TRAY_GLOBAL_KEY] = tray;
+}
 
 export class MinimaTray {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,20 +45,31 @@ export class MinimaTray {
 		const { Tray, Menu, nativeImage } = remote;
 
 		// Destroy any leftover tray from a previous load cycle
-		if (activeTray) {
+		const existingTray = getGlobalTray();
+		if (existingTray) {
 			try {
-				activeTray.destroy();
+				existingTray.destroy();
 			} catch {
 				/* already gone */
 			}
-			activeTray = null;
+			setGlobalTray(null);
+		}
+
+		// Also destroy the current instance's tray if it exists
+		if (this.tray) {
+			try {
+				this.tray.destroy();
+			} catch {
+				/* already gone */
+			}
+			this.tray = null;
 		}
 
 		try {
 			const icon = this.createIcon(nativeImage);
 			this.tray = new Tray(icon);
 			this.tray.setToolTip("Minima");
-			activeTray = this.tray;
+			setGlobalTray(this.tray);
 		} catch (e) {
 			console.error("Minima: Failed to create tray:", e);
 			return false;
@@ -164,7 +186,7 @@ export class MinimaTray {
 			} catch {
 				/* already gone */
 			}
-			if (activeTray === this.tray) activeTray = null;
+			if (getGlobalTray() === this.tray) setGlobalTray(null);
 			this.tray = null;
 		}
 	}
