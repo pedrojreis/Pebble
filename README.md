@@ -7,11 +7,13 @@ Minima adds a small, always-accessible window from your system tray/menu bar. Po
 ## Features
 
 - **Minimal** — small and distraction-free writing window.
-- **Menu-bar toggle** — click the Minima icon (or use the command) to open/close the note window.
+- **Menu-bar toggle** — click the Minima icon to open/close the note window.
 - **Anchored window (macOS)** — opens near the menu bar icon for quick access.
+- **Auto-close on blur** — closes when you click outside the pop-out window.
 - **Single-file focus** — choose one markdown note from your vault; Minima reads and writes to that file only.
 - **Fast autosave** — edits are written back to disk automatically.
 - **Always on top** — optionally keep the window above other windows.
+- **Tray icon style** — choose between color and monochrome menu bar icons.
 
 ## Installation
 
@@ -31,7 +33,7 @@ Minima adds a small, always-accessible window from your system tray/menu bar. Po
 ## Usage
 
 1. Open **Settings → Minima** and choose a note from your vault.
-2. Use the command **Toggle Minima** (or click the tray icon) to show/hide the window.
+2. Click the Minima menu bar / system tray icon to show or hide the window.
 3. Write away.
 
 ## Settings
@@ -41,11 +43,6 @@ Minima adds a small, always-accessible window from your system tray/menu bar. Po
 | **Note**                     | The vault note that Minima reads and writes to. | None    |
 | **Always on top**            | Keep the note window above other windows.       | On      |
 | **Monochrome menu bar icon** | Use a template icon in the macOS menu bar.      | Off     |
-
-## Current limitations
-
-- Minima uses a lightweight plain text editor in the pop-out window, not the full Obsidian editor UI.
-- The tray icon interaction is click-to-toggle only (no tray context menu).
 
 ## Requirements
 
