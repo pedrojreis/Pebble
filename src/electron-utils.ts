@@ -6,12 +6,8 @@
 let cachedRemote: ElectronRemote | null = null;
 
 interface ElectronRemote {
-	getCurrentWindow: () => ElectronBrowserWindowInstance;
 	nativeImage: { createFromDataURL(url: string): ElectronNativeImage };
 	Tray: new (image: ElectronNativeImage) => ElectronTray;
-	Menu: {
-		buildFromTemplate(template: ElectronMenuItemOptions[]): ElectronMenu;
-	};
 	BrowserWindow: new (
 		opts: ElectronBrowserWindowOptions,
 	) => ElectronBrowserWindowInstance;
@@ -34,21 +30,15 @@ interface ElectronDisplay {
 	workArea: ElectronRectangle;
 }
 
-export interface ElectronBrowserWindowOptions {
+interface ElectronBrowserWindowOptions {
 	width?: number;
 	height?: number;
 	x?: number;
 	y?: number;
 	alwaysOnTop?: boolean;
 	title?: string;
-	titleBarStyle?:
-		| "default"
-		| "hidden"
-		| "hiddenInset"
-		| "customButtonsOnHover";
 	show?: boolean;
 	frame?: boolean;
-	resizable?: boolean;
 	webPreferences?: {
 		nodeIntegration?: boolean;
 		contextIsolation?: boolean;
@@ -81,22 +71,12 @@ interface ElectronNativeImage {
 export interface ElectronTray {
 	setToolTip(text: string): void;
 	setTitle?(text: string): void;
-	setContextMenu(menu: ElectronMenu): void;
 	getBounds(): ElectronRectangle;
 	on(
 		event: string,
 		callback: (event: unknown, bounds: ElectronRectangle) => void,
 	): void;
 	destroy(): void;
-}
-
-interface ElectronMenu {}
-
-interface ElectronMenuItemOptions {
-	label?: string;
-	click?: () => void;
-	type?: string;
-	role?: string;
 }
 
 function getRequire(win: Window = window): ((id: string) => unknown) | null {
