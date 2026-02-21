@@ -15,6 +15,7 @@ export function buildEditorHTML(
 	filePath: string,
 	initialContent: string,
 	noteTitle: string,
+	showNoteTitle: boolean,
 ): string {
 	const escapedNoteTitleForHtml = noteTitle
 		.replace(/&/g, "&amp;")
@@ -35,7 +36,15 @@ export function buildEditorHTML(
 	return replaceToken(
 		replaceToken(
 			replaceToken(
-				replaceToken(editorTemplate, "__EDITOR_STYLE__", editorStyles),
+				replaceToken(
+					replaceToken(
+						editorTemplate,
+						"__EDITOR_STYLE__",
+						editorStyles,
+					),
+					"__NOTE_TITLE_HIDDEN_ATTR__",
+					showNoteTitle ? "" : "hidden",
+				),
 				"__INITIAL_CONTENT__",
 				escapedInitialContentForTextarea,
 			),

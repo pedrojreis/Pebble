@@ -5,12 +5,14 @@ export interface MinimaSettings {
 	notePath: string;
 	alwaysOnTop: boolean;
 	monochromeTrayIcon: boolean;
+	showNoteTitle: boolean;
 }
 
 export const DEFAULT_SETTINGS: MinimaSettings = {
 	notePath: "",
 	alwaysOnTop: true,
 	monochromeTrayIcon: false,
+	showNoteTitle: true,
 };
 
 export class MinimaSettingTab extends PluginSettingTab {
@@ -68,6 +70,18 @@ export class MinimaSettingTab extends PluginSettingTab {
 						this.plugin.settings.monochromeTrayIcon = value;
 						await this.plugin.saveSettings();
 						this.plugin.refreshTrayIcon();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Show note title")
+			.setDesc("Show the note title as a subtle background watermark.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.showNoteTitle)
+					.onChange(async (value) => {
+						this.plugin.settings.showNoteTitle = value;
+						await this.plugin.saveSettings();
 					});
 			});
 

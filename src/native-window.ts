@@ -114,7 +114,12 @@ export class NativeWindow {
 
 			await win.loadURL("about:blank");
 
-			const html = buildEditorHTML(filePath, initialContent, basename);
+			const html = buildEditorHTML(
+				filePath,
+				initialContent,
+				basename,
+				settings.showNoteTitle,
+			);
 			await win.webContents.executeJavaScript(
 				`document.open(); document.write(${JSON.stringify(html)}); document.close();`,
 			);

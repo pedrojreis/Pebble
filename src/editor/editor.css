@@ -37,22 +37,25 @@ body {
 
 #note-title {
 	position: absolute;
-	top: 8px;
-	right: 10px;
-	max-width: min(60%, 240px);
-	font-size: 11px;
+	top: 12px;
+	left: 16px;
+	right: 16px;
+	max-width: none;
+	font-size: 18px;
 	font-weight: 500;
-	letter-spacing: 0.01em;
-	opacity: 0.46;
+	letter-spacing: 0.015em;
+	opacity: 0.12;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	pointer-events: none;
 	user-select: none;
-	z-index: 2;
+	z-index: 0;
 }
 
 #editor {
+	position: relative;
+	z-index: 1;
 	width: 100%;
 	height: 100%;
 	border: none;
