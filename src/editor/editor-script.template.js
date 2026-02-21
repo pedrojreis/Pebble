@@ -261,55 +261,35 @@ const editorScriptTemplate = String.raw`(function() {
 
 		const line = editor.value.slice(bounds.lineStart, bounds.lineEnd);
 
+		function stripLineToIndent() {
+			const indentMatch = line.match(/^(\s*)/);
+			editor.setRangeText(
+				indentMatch ? indentMatch[1] : '',
+				bounds.lineStart,
+				bounds.lineEnd,
+				'end',
+			);
+			scheduleSave();
+			return true;
+		}
+
 		if (
 			/^\s*-\s$/.test(line) ||
 			/^\s*-\s\[(?: |x|X)\]\s$/.test(line)
 		) {
-			const indentMatch = line.match(/^(\s*)/);
-			editor.setRangeText(
-				indentMatch ? indentMatch[1] : '',
-				bounds.lineStart,
-				bounds.lineEnd,
-				'end',
-			);
-			scheduleSave();
-			return true;
+			return stripLineToIndent();
 		}
 
 		if (/^\s*\d+\.\s$/.test(line)) {
-			const indentMatch = line.match(/^(\s*)/);
-			editor.setRangeText(
-				indentMatch ? indentMatch[1] : '',
-				bounds.lineStart,
-				bounds.lineEnd,
-				'end',
-			);
-			scheduleSave();
-			return true;
+			return stripLineToIndent();
 		}
 
 		if (/^\s*(?:>\s*)+$/.test(line)) {
-			const indentMatch = line.match(/^(\s*)/);
-			editor.setRangeText(
-				indentMatch ? indentMatch[1] : '',
-				bounds.lineStart,
-				bounds.lineEnd,
-				'end',
-			);
-			scheduleSave();
-			return true;
+			return stripLineToIndent();
 		}
 
 		if (/^\s*#{1,6}\s$/.test(line)) {
-			const indentMatch = line.match(/^(\s*)/);
-			editor.setRangeText(
-				indentMatch ? indentMatch[1] : '',
-				bounds.lineStart,
-				bounds.lineEnd,
-				'end',
-			);
-			scheduleSave();
-			return true;
+			return stripLineToIndent();
 		}
 
 		return false;
@@ -348,10 +328,6 @@ const editorScriptTemplate = String.raw`(function() {
 	});
 
 	editor.addEventListener('input', function() {
-		isDirty = true;
-		scheduleSave();
-	});
-	editor.addEventListener('keyup', function() {
 		isDirty = true;
 		scheduleSave();
 	});

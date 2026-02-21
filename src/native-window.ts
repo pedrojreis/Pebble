@@ -114,7 +114,7 @@ export class NativeWindow {
 
 			await win.loadURL("about:blank");
 
-			const html = buildEditorHTML(filePath, initialContent);
+			const html = buildEditorHTML(filePath, initialContent, basename);
 			await win.webContents.executeJavaScript(
 				`document.open(); document.write(${JSON.stringify(html)}); document.close();`,
 			);
@@ -190,24 +190,25 @@ export class NativeWindow {
 		}
 
 		const basePath = adapter.getBasePath();
-		const path = (
+		const requireFn = (
 			window as Window & {
-				require?: (id: string) => {
-					join: (...args: string[]) => string;
-				};
+				require?: (id: string) => unknown;
 			}
-		).require?.("path");
+		).require;
+		const path = requireFn?.("path") as
+			| {
+					join: (...args: string[]) => string;
+			  }
+			| undefined;
 		if (!path) return null;
 
 		const absolutePath = path.join(basePath, notePath);
 
-		const fs = (
-			window as Window & {
-				require?: (id: string) => {
+		const fs = requireFn?.("fs") as
+			| {
 					existsSync: (p: string) => boolean;
-				};
-			}
-		).require?.("fs");
+			  }
+			| undefined;
 		if (!fs?.existsSync(absolutePath)) {
 			new Notice("Minima: selected note does not exist on disk.");
 			return null;

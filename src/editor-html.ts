@@ -14,7 +14,12 @@ function replaceToken(template: string, token: string, value: string): string {
 export function buildEditorHTML(
 	filePath: string,
 	initialContent: string,
+	noteTitle: string,
 ): string {
+	const escapedNoteTitleForHtml = noteTitle
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;");
 	const escapedPath = filePath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 	const serializedInitialContent = JSON.stringify(initialContent);
 	const escapedInitialContentForTextarea = initialContent
@@ -29,9 +34,13 @@ export function buildEditorHTML(
 
 	return replaceToken(
 		replaceToken(
-			replaceToken(editorTemplate, "__EDITOR_STYLE__", editorStyles),
-			"__INITIAL_CONTENT__",
-			escapedInitialContentForTextarea,
+			replaceToken(
+				replaceToken(editorTemplate, "__EDITOR_STYLE__", editorStyles),
+				"__INITIAL_CONTENT__",
+				escapedInitialContentForTextarea,
+			),
+			"__NOTE_TITLE__",
+			escapedNoteTitleForHtml,
 		),
 		"__EDITOR_SCRIPT__",
 		editorScript,

@@ -1,4 +1,4 @@
-import { Plugin } from "obsidian";
+import { Plugin, TFile } from "obsidian";
 import { DEFAULT_SETTINGS, MinimaSettings, MinimaSettingTab } from "./settings";
 import { NativeWindow } from "./native-window";
 import { MinimaTray } from "./tray";
@@ -17,6 +17,21 @@ export default class MinimaPlugin extends Plugin {
 			this.overlayWindow?.close();
 			this.tray?.destroy();
 		});
+
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				if (!(file instanceof TFile) || file.extension !== "md") {
+					return;
+				}
+
+				if (this.settings.notePath !== oldPath) {
+					return;
+				}
+
+				this.settings.notePath = file.path;
+				void this.saveSettings();
+			}),
+		);
 
 		this.createTray();
 
