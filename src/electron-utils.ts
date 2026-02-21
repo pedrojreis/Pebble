@@ -1,39 +1,137 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
-
 /**
- * Safely access the Electron remote module from within an Obsidian plugin.
- * Tries @electron/remote first (newer Electron), then falls back to electron.remote.
+ * Helpers for accessing Electron's remote module inside an Obsidian plugin.
+ * Electron remote is required for tray icons and BrowserWindow creation.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cachedRemote: any = null;
+let cachedRemote: ElectronRemote | null = null;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getRemote(): any {
+interface ElectronRemote {
+	getCurrentWindow: () => ElectronBrowserWindowInstance;
+	nativeImage: { createFromDataURL(url: string): ElectronNativeImage };
+	Tray: new (image: ElectronNativeImage) => ElectronTray;
+	Menu: {
+		buildFromTemplate(template: ElectronMenuItemOptions[]): ElectronMenu;
+	};
+	BrowserWindow: new (
+		opts: ElectronBrowserWindowOptions,
+	) => ElectronBrowserWindowInstance;
+	screen?: ElectronScreen;
+}
+
+export interface ElectronRectangle {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+interface ElectronScreen {
+	getPrimaryDisplay(): ElectronDisplay;
+	getDisplayNearestPoint(point: { x: number; y: number }): ElectronDisplay;
+}
+
+interface ElectronDisplay {
+	workArea: ElectronRectangle;
+}
+
+export interface ElectronBrowserWindowOptions {
+	width?: number;
+	height?: number;
+	x?: number;
+	y?: number;
+	alwaysOnTop?: boolean;
+	title?: string;
+	titleBarStyle?:
+		| "default"
+		| "hidden"
+		| "hiddenInset"
+		| "customButtonsOnHover";
+	show?: boolean;
+	frame?: boolean;
+	resizable?: boolean;
+	webPreferences?: {
+		nodeIntegration?: boolean;
+		contextIsolation?: boolean;
+	};
+}
+
+export interface ElectronBrowserWindowInstance {
+	loadURL(url: string): Promise<void>;
+	close(): void;
+	destroy(): void;
+	isDestroyed(): boolean;
+	show(): void;
+	focus(): void;
+	setPosition(x: number, y: number, animate?: boolean): void;
+	setAlwaysOnTop(flag: boolean, level?: string): void;
+	on(event: string, callback: () => void): void;
+	webContents: ElectronWebContents;
+}
+
+interface ElectronWebContents {
+	executeJavaScript(code: string): Promise<unknown>;
+}
+
+interface ElectronNativeImage {
+	setTemplateImage(flag: boolean): void;
+	resize(options: { width: number; height: number }): ElectronNativeImage;
+	isEmpty(): boolean;
+}
+
+export interface ElectronTray {
+	setToolTip(text: string): void;
+	setTitle?(text: string): void;
+	setContextMenu(menu: ElectronMenu): void;
+	getBounds(): ElectronRectangle;
+	on(
+		event: string,
+		callback: (event: unknown, bounds: ElectronRectangle) => void,
+	): void;
+	destroy(): void;
+}
+
+interface ElectronMenu {}
+
+interface ElectronMenuItemOptions {
+	label?: string;
+	click?: () => void;
+	type?: string;
+	role?: string;
+}
+
+function getRequire(win: Window = window): ((id: string) => unknown) | null {
+	const req = (win as Window & { require?: (id: string) => unknown }).require;
+	return typeof req === "function" ? req : null;
+}
+
+/**
+ * Returns the Electron remote module from the main window context.
+ * Cached after first successful load.
+ */
+export function getRemote(): ElectronRemote | null {
 	if (cachedRemote) return cachedRemote;
 
+	const req = getRequire(window);
+	if (!req) return null;
+
 	try {
-		cachedRemote = require("@electron/remote");
-		console.debug("Minima: loaded @electron/remote successfully");
+		cachedRemote = req("@electron/remote") as ElectronRemote;
 		return cachedRemote;
-	} catch (e1) {
-		console.debug("Minima: @electron/remote not available:", e1);
-		try {
-			const electron = require("electron");
-			if (electron.remote) {
-				cachedRemote = electron.remote;
-				console.debug("Minima: loaded electron.remote fallback");
-				return cachedRemote;
-			}
-			console.debug("Minima: electron.remote is undefined");
-		} catch (e2) {
-			console.debug("Minima: electron module also failed:", e2);
-		}
+	} catch {
+		/* not available */
 	}
 
-	console.error(
-		"Minima: No Electron remote module found. Tray/window features disabled.",
-	);
+	try {
+		const electron = req("electron") as
+			| { remote?: ElectronRemote }
+			| undefined;
+		if (electron?.remote) {
+			cachedRemote = electron.remote;
+			return cachedRemote;
+		}
+	} catch {
+		/* not available */
+	}
+
 	return null;
 }

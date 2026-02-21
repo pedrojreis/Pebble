@@ -2,15 +2,16 @@
 
 A minimal Obsidian companion that lives in your menu bar for quick note-taking.
 
-Minima adds a small, always-accessible window anchored to your system tray. Point it at any markdown file in your vault and start writing — no need to open the full Obsidian window.
+Minima adds a small, always-accessible window from your system tray/menu bar. Point it at any markdown file in your vault and start writing — no need to keep the full Obsidian window front and center.
 
 ## Features
 
-- **Menu-bar window** — toggle a lightweight note window from the system tray or with a command.
-- **Inherits your theme** — the pop-out window uses your current Obsidian theme and CSS snippets, so it feels native.
-- **Full Obsidian editor** — supports all the editing features you're used to (links, embeds, plugins, etc.).
+- **Minimal** — small and distraction-free writing window.
+- **Menu-bar toggle** — click the Minima icon (or use the command) to open/close the note window.
+- **Anchored window (macOS)** — opens near the menu bar icon for quick access.
 - **Single-file focus** — choose one markdown note from your vault; Minima reads and writes to that file only.
-- **Always on top** — optionally keep the window above all other windows (configurable in settings).
+- **Fast autosave** — edits are written back to disk automatically.
+- **Always on top** — optionally keep the window above other windows.
 
 ## Installation
 
@@ -35,10 +36,16 @@ Minima adds a small, always-accessible window anchored to your system tray. Poin
 
 ## Settings
 
-| Setting           | Description                                     | Default |
-| ----------------- | ----------------------------------------------- | ------- |
-| **Note**          | The vault note that Minima reads and writes to. | None    |
-| **Always on top** | Keep the note window above other windows.       | On      |
+| Setting                      | Description                                     | Default |
+| ---------------------------- | ----------------------------------------------- | ------- |
+| **Note**                     | The vault note that Minima reads and writes to. | None    |
+| **Always on top**            | Keep the note window above other windows.       | On      |
+| **Monochrome menu bar icon** | Use a template icon in the macOS menu bar.      | Off     |
+
+## Current limitations
+
+- Minima uses a lightweight plain text editor in the pop-out window, not the full Obsidian editor UI.
+- The tray icon interaction is click-to-toggle only (no tray context menu).
 
 ## Requirements
 

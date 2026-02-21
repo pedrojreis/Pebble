@@ -1,161 +1,58 @@
 import { Plugin } from "obsidian";
-import { MinimaSettings, DEFAULT_SETTINGS, MinimaSettingTab } from "./settings";
+import { DEFAULT_SETTINGS, MinimaSettings, MinimaSettingTab } from "./settings";
 import { NativeWindow } from "./native-window";
 import { MinimaTray } from "./tray";
-import { getRemote } from "./electron-utils";
 
 export default class MinimaPlugin extends Plugin {
-	settings: MinimaSettings = DEFAULT_SETTINGS;
-	private noteWindow: NativeWindow | null = null;
+	settings: MinimaSettings = { ...DEFAULT_SETTINGS };
+	private overlayWindow: NativeWindow | null = null;
 	private tray: MinimaTray | null = null;
-	private electronReady = false;
-	private didFinishLoadHandler: (() => void) | null = null;
-	private beforeUnloadHandler: (() => void) | null = null;
-	private beforeQuitHandler: (() => void) | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
-		this.addSettingTab(new MinimaSettingTab(this.app, this));
-		this.registerCommand();
-		this.setupElectronLifecycle();
-	}
 
-	onunload(): void {
-		this.destroyResources();
-	}
+		this.overlayWindow = new NativeWindow(this.app, () => this.settings);
 
-	private registerCommand(): void {
+		this.registerDomEvent(window, "beforeunload", () => {
+			this.overlayWindow?.close();
+			this.tray?.destroy();
+		});
+
+		this.createTray();
+
 		this.addCommand({
 			id: "toggle-minima",
 			name: "Toggle Minima",
-			callback: () => void this.noteWindow?.toggle(),
+			callback: () => {
+				this.overlayWindow?.toggle();
+			},
 		});
+
+		this.addSettingTab(new MinimaSettingTab(this.app, this));
 	}
 
-	private setupElectronLifecycle(): void {
-		const remote = getRemote();
-		if (!remote) return;
+	onunload(): void {
+		this.overlayWindow?.close();
+		this.overlayWindow = null;
 
-		const mainWindow = remote.getCurrentWindow();
-
-		// Store handler reference so we can remove it on unload
-		this.didFinishLoadHandler = () => {
-			if (!this.electronReady) {
-				this.electronReady = true;
-				this.createResources();
-			}
-		};
-		mainWindow.webContents.once(
-			"did-finish-load",
-			this.didFinishLoadHandler,
-		);
-
-		if (mainWindow.webContents.isLoading()) return;
-		this.electronReady = true;
-		this.createResources();
-	}
-
-	private createResources(): void {
-		// Guard against duplicate creation
-		if (this.tray) return;
-
-		this.tray = new MinimaTray(
-			() => void this.noteWindow?.toggle(true),
-			() => this.noteWindow?.hide(),
-		);
-		this.tray.create();
-
-		// Register early cleanup handlers — onunload can fire too late for IPC
-		this.beforeUnloadHandler = () => {
-			this.tray?.destroy();
-		};
-		window.addEventListener("beforeunload", this.beforeUnloadHandler);
-
-		try {
-			const remote = getRemote();
-			if (remote) {
-				this.beforeQuitHandler = () => {
-					this.tray?.destroy();
-				};
-				remote.app.on("before-quit", this.beforeQuitHandler);
-			}
-		} catch {
-			/* ignore */
-		}
-
-		this.noteWindow = new NativeWindow(
-			this.app,
-			this.settings,
-			() => this.tray?.getBounds() ?? null,
-		);
-
-		// Clean up stale popout leaves once workspace is ready
-		this.app.workspace.onLayoutReady(() => {
-			this.noteWindow?.cleanupStaleLeaves();
-		});
-	}
-
-	private destroyResources(): void {
-		// Remove event listener if it hasn't fired yet
-		if (this.didFinishLoadHandler) {
-			try {
-				const remote = getRemote();
-				if (remote) {
-					const mainWindow = remote.getCurrentWindow();
-					mainWindow.webContents.off(
-						"did-finish-load",
-						this.didFinishLoadHandler,
-					);
-				}
-			} catch {
-				/* ignore */
-			}
-			this.didFinishLoadHandler = null;
-		}
-
-		// Remove beforeunload handler
-		if (this.beforeUnloadHandler) {
-			window.removeEventListener(
-				"beforeunload",
-				this.beforeUnloadHandler,
-			);
-			this.beforeUnloadHandler = null;
-		}
-
-		// Remove before-quit handler
-		if (this.beforeQuitHandler) {
-			try {
-				const remote = getRemote();
-				if (remote) {
-					remote.app.off("before-quit", this.beforeQuitHandler);
-				}
-			} catch {
-				/* ignore */
-			}
-			this.beforeQuitHandler = null;
-		}
-
-		this.noteWindow?.destroy();
-		this.noteWindow = null;
 		this.tray?.destroy();
 		this.tray = null;
-		this.electronReady = false;
 	}
 
-	reloadNoteWindow(): void {
-		this.noteWindow?.destroy();
-		this.noteWindow = new NativeWindow(
-			this.app,
-			this.settings,
-			() => this.tray?.getBounds() ?? null,
-		);
+	setAlwaysOnTop(flag: boolean): void {
+		this.overlayWindow?.setAlwaysOnTop(flag);
 	}
 
-	updateWindowAlwaysOnTop(value: boolean): void {
-		this.noteWindow?.setAlwaysOnTop(value);
+	refreshTrayIcon(): void {
+		this.tray?.destroy();
+		this.createTray();
 	}
 
-	async loadSettings(): Promise<void> {
+	async saveSettings(): Promise<void> {
+		await this.saveData(this.settings);
+	}
+
+	private async loadSettings(): Promise<void> {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
@@ -163,7 +60,10 @@ export default class MinimaPlugin extends Plugin {
 		);
 	}
 
-	async saveSettings(): Promise<void> {
-		await this.saveData(this.settings);
+	private createTray(): void {
+		this.tray = new MinimaTray();
+		this.tray.create((bounds) => {
+			this.overlayWindow?.toggle(bounds);
+		}, this.settings.monochromeTrayIcon);
 	}
 }

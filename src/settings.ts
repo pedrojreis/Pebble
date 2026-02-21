@@ -1,53 +1,20 @@
-import {
-	App,
-	PluginSettingTab,
-	Setting,
-	TFile,
-	FuzzySuggestModal,
-} from "obsidian";
+import { App, PluginSettingTab, Setting, TFile } from "obsidian";
 import type MinimaPlugin from "./main";
 
 export interface MinimaSettings {
 	notePath: string;
 	alwaysOnTop: boolean;
-	windowWidth: number;
-	windowHeight: number;
+	monochromeTrayIcon: boolean;
 }
 
 export const DEFAULT_SETTINGS: MinimaSettings = {
 	notePath: "",
 	alwaysOnTop: true,
-	windowWidth: 340,
-	windowHeight: 440,
+	monochromeTrayIcon: false,
 };
 
-/**
- * Fuzzy search modal to pick a markdown note from the vault.
- */
-class NotePickerModal extends FuzzySuggestModal<TFile> {
-	private onChoose: (file: TFile) => void;
-
-	constructor(app: App, onChoose: (file: TFile) => void) {
-		super(app);
-		this.onChoose = onChoose;
-		this.setPlaceholder("Search for a note…");
-	}
-
-	getItems(): TFile[] {
-		return this.app.vault.getMarkdownFiles();
-	}
-
-	getItemText(item: TFile): string {
-		return item.path;
-	}
-
-	onChooseItem(item: TFile): void {
-		this.onChoose(item);
-	}
-}
-
 export class MinimaSettingTab extends PluginSettingTab {
-	plugin: MinimaPlugin;
+	private plugin: MinimaPlugin;
 
 	constructor(app: App, plugin: MinimaPlugin) {
 		super(app, plugin);
@@ -58,44 +25,67 @@ export class MinimaSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		// ── Note picker ────────────────────────────────────────
-		const noteSetting = new Setting(containerEl)
+		new Setting(containerEl)
 			.setName("Note")
-			// eslint-disable-next-line obsidianmd/ui/sentence-case
-			.setDesc("The vault note that Minima reads and writes to.");
+			.setDesc("The vault note that Minima reads and writes to.")
+			.addDropdown((dropdown) => {
+				dropdown.addOption("", "Select a note");
 
-		const noteDisplay = noteSetting.controlEl.createEl("span", {
-			text: this.plugin.settings.notePath || "None selected",
-			cls: this.plugin.settings.notePath
-				? "minima-note-path has-note"
-				: "minima-note-path",
-		});
+				const markdownFiles = this.app.vault
+					.getMarkdownFiles()
+					.sort((left, right) => left.path.localeCompare(right.path));
 
-		noteSetting.addButton((btn) =>
-			btn.setButtonText("Choose").onClick(() => {
-				new NotePickerModal(this.app, (file) => {
-					this.plugin.settings.notePath = file.path;
-					void this.plugin.saveSettings();
-					this.plugin.reloadNoteWindow();
-					noteDisplay.setText(file.path);
-					noteDisplay.classList.add("has-note");
-				}).open();
-			}),
-		);
+				for (const file of markdownFiles) {
+					dropdown.addOption(file.path, file.path);
+				}
 
-		// ── Always on top ──────────────────────────────────────
+				dropdown.setValue(this.plugin.settings.notePath);
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.notePath = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
 		new Setting(containerEl)
 			.setName("Always on top")
-			// eslint-disable-next-line obsidianmd/ui/sentence-case
-			.setDesc("Keep the note window above other windows.")
-			.addToggle((toggle) =>
+			.setDesc("Keep the Minima window above other windows.")
+			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.settings.alwaysOnTop)
 					.onChange(async (value) => {
 						this.plugin.settings.alwaysOnTop = value;
 						await this.plugin.saveSettings();
-						this.plugin.updateWindowAlwaysOnTop(value);
-					}),
-			);
+						this.plugin.setAlwaysOnTop(value);
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Monochrome menu bar icon")
+			.setDesc("Use a template icon in the macOS menu bar.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.monochromeTrayIcon)
+					.onChange(async (value) => {
+						this.plugin.settings.monochromeTrayIcon = value;
+						await this.plugin.saveSettings();
+						this.plugin.refreshTrayIcon();
+					});
+			});
+
+		const statusEl = containerEl.createDiv({ cls: "minima-note-status" });
+		const file = this.getSelectedFile();
+		statusEl.setText(
+			file ? `Selected note: ${file.path}` : "Selected note: none",
+		);
+	}
+
+	private getSelectedFile(): TFile | null {
+		if (!this.plugin.settings.notePath) return null;
+		const abstract = this.app.vault.getAbstractFileByPath(
+			this.plugin.settings.notePath,
+		);
+		if (!(abstract instanceof TFile) || abstract.extension !== "md")
+			return null;
+		return abstract;
 	}
 }

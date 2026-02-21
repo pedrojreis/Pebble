@@ -1,18 +1,7 @@
-/* Minima – Obsidian-side styles */
+/* Minima plugin styles */
 
-/* Ribbon icon subtle pulse on hover */
-.side-dock-ribbon-action[aria-label="Toggle note window"] {
-	transition: color 0.15s ease;
-}
-.side-dock-ribbon-action[aria-label="Toggle note window"]:hover {
-	color: var(--interactive-accent);
-}
-
-/* Settings: note path display */
-.minima-note-path {
-	margin-right: 8px;
-	opacity: 0.5;
-}
-.minima-note-path.has-note {
-	opacity: 1;
+.minima-note-status {
+	margin-top: 8px;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
 }

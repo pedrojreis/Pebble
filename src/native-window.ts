@@ -1,385 +1,224 @@
-import { App, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { App, FileSystemAdapter, Notice } from "obsidian";
+import {
+	ElectronBrowserWindowInstance,
+	ElectronRectangle,
+	getRemote,
+} from "./electron-utils";
+import { buildEditorHTML } from "./editor-html";
 import { MinimaSettings } from "./settings";
-import { getRemote } from "./electron-utils";
-import { POPOUT_CSS } from "./popout-style";
 
-type Bounds = { x: number; y: number; width: number; height: number };
-type BrowserWindow = {
-	id: number;
-	hide(): void;
-	show(): void;
-	focus(): void;
-	close(): void;
-	destroy(): void;
-	minimize(): void;
-	isVisible(): boolean;
-	isFocused(): boolean;
-	isDestroyed(): boolean;
-	isMinimized(): boolean;
-	setAlwaysOnTop(v: boolean): void;
-	setSize(w: number, h: number): void;
-	setPosition(x: number, y: number): void;
-	setParentWindow(parent: BrowserWindow | null): void;
-	getSize(): [number, number];
-	getBounds(): Bounds;
-	on(event: string, cb: () => void): void;
-	webContents: { executeJavaScript(js: string): Promise<void> };
-};
-
-const PADDING = 16;
-
-/** Snapshot of the Obsidian main window state before Minima opens. */
-interface MainWindowState {
-	wasVisible: boolean;
-	wasMinimized: boolean;
-}
+const POPOUT_WIDTH = 420;
+const POPOUT_HEIGHT = 320;
+const WINDOW_MARGIN = 8;
 
 export class NativeWindow {
+	private win: ElectronBrowserWindowInstance | null = null;
+	private opening = false;
 	private app: App;
-	private settings: MinimaSettings;
-	private getTrayBounds: (() => Bounds | null) | null;
-	private leaf: WorkspaceLeaf | null = null;
-	private win: BrowserWindow | null = null;
-	private styled = false;
-	/** State of the Obsidian main window captured right before we open the popout. */
-	private mainWindowState: MainWindowState | null = null;
+	private readSettings: () => MinimaSettings;
 
-	constructor(
-		app: App,
-		settings: MinimaSettings,
-		getTrayBounds?: () => Bounds | null,
-	) {
+	constructor(app: App, readSettings: () => MinimaSettings) {
 		this.app = app;
-		this.settings = settings;
-		this.getTrayBounds = getTrayBounds ?? null;
+		this.readSettings = readSettings;
 	}
 
-	private getFile(): TFile | null {
-		if (!this.settings.notePath) return null;
-		const f = this.app.vault.getAbstractFileByPath(this.settings.notePath);
-		return f instanceof TFile ? f : null;
-	}
-
-	isVisible(): boolean {
-		try {
-			return this.win?.isVisible() ?? false;
-		} catch {
-			return false;
+	async toggle(anchorBounds?: ElectronRectangle): Promise<void> {
+		if (this.opening) {
+			return;
 		}
-	}
 
-	async toggle(fromTray = false): Promise<void> {
-		if (this.isVisible()) {
-			this.hide();
-		} else {
-			await this.show(fromTray);
+		if (this.isOpen()) {
+			this.close();
+			return;
 		}
+		await this.open(anchorBounds);
 	}
 
-	/**
-	 * Capture the current visibility state of the Obsidian main window
-	 * so we can restore it later (after opening/closing the popout).
-	 */
-	private snapshotMainWindow(): MainWindowState {
-		const remote = getRemote();
-		if (!remote) return { wasVisible: false, wasMinimized: false };
-		try {
-			const main = remote.getCurrentWindow() as BrowserWindow;
-			return {
-				wasVisible: main.isVisible() && !main.isMinimized(),
-				wasMinimized: main.isMinimized(),
-			};
-		} catch {
-			return { wasVisible: false, wasMinimized: false };
+	close(): void {
+		if (!this.win || this.win.isDestroyed()) {
+			this.win = null;
+			return;
+		}
+		this.win.close();
+		this.win = null;
+	}
+
+	setAlwaysOnTop(flag: boolean): void {
+		if (this.win && !this.win.isDestroyed()) {
+			this.win.setAlwaysOnTop(flag, "floating");
 		}
 	}
 
-	/**
-	 * Restore the Obsidian main window to the state captured by snapshotMainWindow.
-	 * If it wasn't visible before, hide it again. If it was minimized, minimize it.
-	 */
-	private restoreMainWindow(state: MainWindowState): void {
-		const remote = getRemote();
-		if (!remote) return;
-		try {
-			const main = remote.getCurrentWindow() as BrowserWindow;
-			if (!state.wasVisible && !state.wasMinimized) {
-				// Main window was hidden — hide it again
-				main.hide();
-			} else if (state.wasMinimized) {
-				// Main window was minimized — minimize it again
-				main.minimize();
-			}
-			// If it was visible and not minimized, leave it alone
-		} catch {
-			/* ignore */
-		}
-	}
-
-	async show(fromTray = false): Promise<boolean> {
-		const file = this.getFile();
-		if (!file) {
-			new Notice("Minima: Select a note in settings first");
-			return false;
-		}
-
-		// Reuse existing window
-		if (this.leaf && this.win) {
-			try {
-				this.position();
-				this.win.show();
-				this.win.focus();
-				return true;
-			} catch {
-				this.leaf = null;
-				this.win = null;
-				this.styled = false;
-			}
-		}
-
-		const remote = getRemote();
-		if (!remote) return false;
-
-		// Snapshot main window state BEFORE creating the popout.
-		// getLeaf("window") activates the app which can show/un-minimize
-		// the main window — we'll restore it afterwards.
-		this.mainWindowState = this.snapshotMainWindow();
-
-		const before = new Set(
-			(remote.BrowserWindow.getAllWindows() as BrowserWindow[]).map(
-				(w) => w.id,
-			),
-		);
-
-		// Create popout
-		this.leaf = this.app.workspace.getLeaf("window");
-		if (!this.leaf) return false;
-
-		// Find new window quickly
-		for (let i = 0; i < 50 && !this.win; i++) {
-			const wins =
-				remote.BrowserWindow.getAllWindows() as BrowserWindow[];
-			this.win = wins.find((w) => !before.has(w.id)) ?? null;
-			if (this.win) {
-				this.win.hide();
-				break;
-			}
-			await sleep(10);
-		}
+	isOpen(): boolean {
 		if (!this.win) return false;
-
-		// Make window independent of Obsidian main window.
-		// This prevents macOS from focusing the main window when this one hides/closes.
-		try {
-			this.win.setParentWindow(null);
-		} catch {
-			/* not supported on this Electron version */
+		if (this.win.isDestroyed()) {
+			this.win = null;
+			return false;
 		}
-
-		// Configure
-		this.win.setAlwaysOnTop(this.settings.alwaysOnTop);
-		this.win.setSize(
-			this.settings.windowWidth + 2 * PADDING,
-			this.settings.windowHeight + PADDING,
-		);
-		this.position();
-
-		await this.leaf.openFile(file);
-		await this.injectStyle();
-		this.setupEvents();
-
-		await sleep(50);
-		this.win.show();
-		this.win.focus();
-
-		// Restore main window to its original state.
-		// getLeaf("window") may have shown/activated it.
-		if (this.mainWindowState) {
-			this.restoreMainWindow(this.mainWindowState);
-		}
-
 		return true;
 	}
 
-	/**
-	 * Fully tear down the popout: detach the Obsidian leaf (so workspace
-	 * state won't restore it on next launch) and destroy the BrowserWindow.
-	 *
-	 * Restores the Obsidian main window to whatever state it was in before
-	 * Minima was opened (hidden stays hidden, minimized stays minimized).
-	 */
-	hide(): void {
-		const savedState = this.mainWindowState;
-
-		// Detach leaf first — removes it from Obsidian's workspace state
-		// so it won't be restored on next startup.
-		try {
-			this.leaf?.detach();
-		} catch {
-			/* already detached */
+	private async open(anchorBounds?: ElectronRectangle): Promise<void> {
+		if (this.opening || this.isOpen()) {
+			return;
 		}
 
-		// Destroy the BrowserWindow
-		try {
-			this.win?.destroy();
-		} catch {
-			/* already destroyed */
+		this.opening = true;
+		const filePath = this.resolveAbsolutePath();
+		if (!filePath) {
+			this.opening = false;
+			return;
 		}
-
-		this.leaf = null;
-		this.win = null;
-		this.styled = false;
-		this.mainWindowState = null;
-
-		// Restore main window to its pre-Minima state.
-		// Destroying the popout may cause macOS to focus/show the main window.
-		if (savedState) {
-			setTimeout(() => {
-				this.restoreMainWindow(savedState);
-			}, 50);
-		}
-	}
-
-	private position(): void {
-		if (!this.win || !this.getTrayBounds) return;
-		const tray = this.getTrayBounds();
-		if (!tray) return;
 
 		const remote = getRemote();
-		if (!remote) return;
-
-		const display = remote.screen.getDisplayNearestPoint({
-			x: tray.x,
-			y: tray.y,
-		});
-		const work = display.workArea as Bounds;
-		const [w] = this.win.getSize();
-
-		let x = Math.round(tray.x + tray.width / 2 - w / 2);
-		const y = tray.y + tray.height + 4;
-
-		if (x + w > work.x + work.width) x = work.x + work.width - w;
-		if (x < work.x) x = work.x;
-
-		this.win.setPosition(x, y);
-	}
-
-	private async injectStyle(): Promise<void> {
-		if (!this.win || this.styled) return;
-		const js = `(function(){
-			var s = document.getElementById('minima-style');
-			if (s) s.remove();
-			s = document.createElement('style');
-			s.id = 'minima-style';
-			s.textContent = ${JSON.stringify(POPOUT_CSS)};
-			document.head.appendChild(s);
-		})();`;
-		try {
-			await this.win.webContents.executeJavaScript(js);
-			this.styled = true;
-		} catch {
-			/* ignore */
+		if (!remote) {
+			new Notice("Minima: Electron remote is not available.");
+			this.opening = false;
+			return;
 		}
-	}
 
-	private setupEvents(): void {
-		if (!this.win) return;
-		this.win.on("blur", () => {
-			setTimeout(() => {
-				try {
-					if (
-						this.win &&
-						!this.win.isDestroyed() &&
-						!this.win.isFocused()
-					) {
-						this.hide();
+		const settings = this.readSettings();
+		const initialContent = await this.readInitialContent(settings.notePath);
+		const basename =
+			settings.notePath.split("/").pop()?.replace(/\.md$/, "") ??
+			"Minima";
+
+		try {
+			const win = new remote.BrowserWindow({
+				width: POPOUT_WIDTH,
+				height: POPOUT_HEIGHT,
+				alwaysOnTop: settings.alwaysOnTop,
+				title: `${basename} — Minima`,
+				frame: process.platform === "darwin" ? false : undefined,
+				show: false,
+				webPreferences: {
+					nodeIntegration: true,
+					contextIsolation: false,
+				},
+			});
+
+			win.on("closed", () => {
+				this.win = null;
+			});
+
+			win.on("blur", () => {
+				window.setTimeout(() => {
+					if (!this.win || this.win !== win || win.isDestroyed()) {
+						return;
 					}
-				} catch {
-					/* destroyed between check */
-				}
-			}, 100);
-		});
-		this.win.on("closed", () => {
+					this.close();
+				}, 80);
+			});
+
+			this.win = win;
+
+			await win.loadURL("about:blank");
+
+			const html = buildEditorHTML(filePath, initialContent);
+			await win.webContents.executeJavaScript(
+				`document.open(); document.write(${JSON.stringify(html)}); document.close();`,
+			);
+
+			this.positionNearTray(win, remote, anchorBounds);
+			win.show();
+			win.focus();
+
+			if (settings.alwaysOnTop) {
+				win.setAlwaysOnTop(true, "floating");
+			}
+		} catch (err) {
 			this.win = null;
-			this.leaf = null;
-			this.styled = false;
-		});
-		this.win.on("resized", () => this.saveBounds());
-	}
-
-	private saveBounds(): void {
-		if (!this.win) return;
-		try {
-			const b = this.win.getBounds();
-			this.settings.windowWidth = b.width - 2 * PADDING;
-			this.settings.windowHeight = b.height - PADDING;
-		} catch {
-			/* destroyed */
+			new Notice(`Minima: failed to open window — ${err}`);
+			console.error("Minima: failed to open window", err);
+		} finally {
+			this.opening = false;
 		}
 	}
 
-	setAlwaysOnTop(v: boolean): void {
-		try {
-			this.win?.setAlwaysOnTop(v);
-		} catch {
-			/* destroyed */
+	private positionNearTray(
+		win: ElectronBrowserWindowInstance,
+		remote: NonNullable<ReturnType<typeof getRemote>>,
+		anchorBounds?: ElectronRectangle,
+	): void {
+		if (process.platform !== "darwin" || !anchorBounds || !remote.screen) {
+			return;
 		}
+
+		const anchorCenterX =
+			anchorBounds.x + Math.round(anchorBounds.width / 2);
+		const anchorBottomY = anchorBounds.y + anchorBounds.height;
+		const display =
+			remote.screen.getDisplayNearestPoint({
+				x: anchorCenterX,
+				y: anchorBottomY,
+			}) ?? remote.screen.getPrimaryDisplay();
+		const { workArea } = display;
+
+		const desiredX = Math.round(anchorCenterX - POPOUT_WIDTH / 2);
+		const desiredY = Math.round(anchorBottomY + WINDOW_MARGIN);
+
+		const minX = workArea.x + WINDOW_MARGIN;
+		const maxX = workArea.x + workArea.width - POPOUT_WIDTH - WINDOW_MARGIN;
+		const minY = workArea.y + WINDOW_MARGIN;
+		const maxY =
+			workArea.y + workArea.height - POPOUT_HEIGHT - WINDOW_MARGIN;
+
+		const finalX = Math.min(Math.max(desiredX, minX), Math.max(minX, maxX));
+		const finalY = Math.min(Math.max(desiredY, minY), Math.max(minY, maxY));
+
+		win.setPosition(finalX, finalY, false);
 	}
 
-	getSettings(): MinimaSettings {
-		return this.settings;
-	}
-
-	destroy(): void {
-		try {
-			this.leaf?.detach();
-		} catch {
-			/* detached */
+	private resolveAbsolutePath(): string | null {
+		const notePath = this.readSettings().notePath.trim();
+		if (!notePath) {
+			new Notice("Minima: select a note in plugin settings first.");
+			return null;
 		}
-		try {
-			this.win?.destroy();
-		} catch {
-			/* destroyed */
+
+		if (!notePath.endsWith(".md")) {
+			new Notice("Minima: selected note is not a markdown file.");
+			return null;
 		}
-		this.leaf = null;
-		this.win = null;
-		this.styled = false;
-	}
 
-	/**
-	 * Clean up any stale popout leaves from a previous session
-	 * that show the Minima note. Called on startup after workspace is ready.
-	 */
-	cleanupStaleLeaves(): void {
-		const notePath = this.settings.notePath;
-		if (!notePath) return;
+		const adapter = this.app.vault.adapter;
+		if (!(adapter instanceof FileSystemAdapter)) {
+			new Notice("Minima: only works on desktop with a local vault.");
+			return null;
+		}
 
-		const leavesToDetach: WorkspaceLeaf[] = [];
-		this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
-			try {
-				// Only target leaves outside the main window (i.e. popout windows)
-				if (leaf.getRoot() === this.app.workspace.rootSplit) return;
-
-				const viewState = leaf.getViewState();
-				if (viewState?.state?.file === notePath) {
-					leavesToDetach.push(leaf);
-				}
-			} catch {
-				/* ignore */
+		const basePath = adapter.getBasePath();
+		const path = (
+			window as Window & {
+				require?: (id: string) => {
+					join: (...args: string[]) => string;
+				};
 			}
-		});
+		).require?.("path");
+		if (!path) return null;
 
-		// Detach outside the iteration to avoid modifying during traversal
-		for (const leaf of leavesToDetach) {
-			try {
-				leaf.detach();
-			} catch {
-				/* ignore */
+		const absolutePath = path.join(basePath, notePath);
+
+		const fs = (
+			window as Window & {
+				require?: (id: string) => {
+					existsSync: (p: string) => boolean;
+				};
 			}
+		).require?.("fs");
+		if (!fs?.existsSync(absolutePath)) {
+			new Notice("Minima: selected note does not exist on disk.");
+			return null;
+		}
+
+		return absolutePath;
+	}
+
+	private async readInitialContent(notePath: string): Promise<string> {
+		try {
+			return await this.app.vault.adapter.read(notePath);
+		} catch {
+			return "";
 		}
 	}
-}
-
-function sleep(ms: number): Promise<void> {
-	return new Promise((r) => setTimeout(r, ms));
 }
