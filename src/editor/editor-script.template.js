@@ -9,6 +9,9 @@ const editorScriptTemplate = String.raw`(function() {
 	let saveTimeout = null;
 	let ignoreNextWatch = false;
 	let lastSavedValue = editor.value;
+	let isDirty = false;
+	let suppressWatchUntil = 0;
+	let externalReloadTimeout = null;
 
 	function loadFile() {
 		try {
@@ -30,12 +33,29 @@ const editorScriptTemplate = String.raw`(function() {
 			ignoreNextWatch = true;
 			fs.writeFileSync(filePath, editor.value, 'utf-8');
 			lastSavedValue = editor.value;
+			isDirty = false;
+			suppressWatchUntil = Date.now() + 1200;
 			setTimeout(function() {
 				ignoreNextWatch = false;
-			}, 200);
+			}, 500);
 		} catch (err) {
 			console.error('Minima: failed to save', err);
 		}
+	}
+
+	function scheduleExternalReload() {
+		if (externalReloadTimeout) {
+			clearTimeout(externalReloadTimeout);
+		}
+
+		externalReloadTimeout = setTimeout(function() {
+			externalReloadTimeout = null;
+			if (saveTimeout || isDirty) {
+				scheduleExternalReload();
+				return;
+			}
+			loadFile();
+		}, 450);
 	}
 
 	function scheduleSave() {
@@ -298,9 +318,14 @@ const editorScriptTemplate = String.raw`(function() {
 	let watcher = null;
 	try {
 		watcher = fs.watch(filePath, function(eventType) {
-			if (eventType === 'change' && !ignoreNextWatch) {
-				loadFile();
+			if (eventType !== 'change') return;
+			if (ignoreNextWatch) return;
+			if (Date.now() < suppressWatchUntil) return;
+			if (saveTimeout || isDirty) {
+				scheduleExternalReload();
+				return;
 			}
+			loadFile();
 		});
 	} catch (err) {
 		console.error('Minima: failed to watch file', err);
@@ -322,8 +347,14 @@ const editorScriptTemplate = String.raw`(function() {
 		}
 	});
 
-	editor.addEventListener('input', scheduleSave);
-	editor.addEventListener('keyup', scheduleSave);
+	editor.addEventListener('input', function() {
+		isDirty = true;
+		scheduleSave();
+	});
+	editor.addEventListener('keyup', function() {
+		isDirty = true;
+		scheduleSave();
+	});
 	editor.addEventListener('blur', saveNow);
 	if (!editor.value && initialContent) {
 		editor.value = initialContent;
