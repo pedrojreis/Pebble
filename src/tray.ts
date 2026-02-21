@@ -38,12 +38,12 @@ export class MinimaTray {
 	) {
 		const size = 32;
 		let icon = null;
-		const primaryIconDataUrl = useTemplateIcon
-			? TRAY_ICON_MONOCHROME_DATA_URL
-			: TRAY_ICON_COLOR_DATA_URL;
-		const alternateIconDataUrl = useTemplateIcon
-			? TRAY_ICON_COLOR_DATA_URL
-			: TRAY_ICON_MONOCHROME_DATA_URL;
+		const primaryIconDataUrl: string = useTemplateIcon
+			? (TRAY_ICON_MONOCHROME_DATA_URL as string)
+			: (TRAY_ICON_COLOR_DATA_URL as string);
+		const alternateIconDataUrl: string = useTemplateIcon
+			? (TRAY_ICON_COLOR_DATA_URL as string)
+			: (TRAY_ICON_MONOCHROME_DATA_URL as string);
 
 		try {
 			const canvas = document.createElement("canvas");
