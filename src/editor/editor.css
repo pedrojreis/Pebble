@@ -1,0 +1,90 @@
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html,
+body {
+	height: 100%;
+}
+
+body {
+	font-family:
+		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+		sans-serif;
+	background: #ffffff;
+	color: #1b1b1b;
+	display: flex;
+	justify-content: center;
+	align-items: stretch;
+	padding: 0;
+}
+
+#editor-shell {
+	width: 100%;
+	height: 100%;
+	max-width: none;
+	background: inherit;
+	border: none;
+	border-radius: 0;
+	overflow: hidden;
+	box-shadow: none;
+}
+
+#editor {
+	width: 100%;
+	height: 100%;
+	border: none;
+	outline: none;
+	resize: none;
+	padding: 24px;
+	font-family: inherit;
+	font-size: 15px;
+	line-height: 1.75;
+	letter-spacing: 0.003em;
+	background: transparent;
+	color: inherit;
+	tab-size: 4;
+	overflow: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+#editor::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+	display: none;
+}
+
+#editor::placeholder {
+	color: #9b9b93;
+}
+
+@media (max-width: 560px) {
+	body {
+		padding: 0;
+	}
+
+	#editor {
+		padding: 18px;
+	}
+}
+
+@media (prefers-color-scheme: dark) {
+	body {
+		background: #191919;
+		color: #ededeb;
+	}
+
+	#editor-shell {
+		background: inherit;
+		box-shadow: none;
+	}
+
+	#editor::placeholder {
+		color: #808078;
+	}
+}
