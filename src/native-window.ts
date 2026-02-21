@@ -72,7 +72,7 @@ export class NativeWindow {
 
 		const remote = getRemote();
 		if (!remote) {
-			new Notice("Minima: Electron remote is not available.");
+			new Notice("Minima: electron remote is not available.");
 			this.opening = false;
 			return;
 		}
@@ -128,7 +128,9 @@ export class NativeWindow {
 			}
 		} catch (err) {
 			this.win = null;
-			new Notice(`Minima: failed to open window — ${err}`);
+			const errorMessage =
+				err instanceof Error ? err.message : String(err);
+			new Notice(`Minima: failed to open window — ${errorMessage}`);
 			console.error("Minima: failed to open window", err);
 		} finally {
 			this.opening = false;
@@ -177,7 +179,7 @@ export class NativeWindow {
 		}
 
 		if (!notePath.endsWith(".md")) {
-			new Notice("Minima: selected note is not a markdown file.");
+			new Notice("Minima: selected note is not a Markdown file.");
 			return null;
 		}
 

@@ -20,14 +20,6 @@ export default class MinimaPlugin extends Plugin {
 
 		this.createTray();
 
-		this.addCommand({
-			id: "toggle-minima",
-			name: "Toggle Minima",
-			callback: () => {
-				this.overlayWindow?.toggle();
-			},
-		});
-
 		this.addSettingTab(new MinimaSettingTab(this.app, this));
 	}
 
@@ -53,17 +45,15 @@ export default class MinimaPlugin extends Plugin {
 	}
 
 	private async loadSettings(): Promise<void> {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData(),
-		);
+		const storedSettings =
+			(await this.loadData()) as Partial<MinimaSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, storedSettings);
 	}
 
 	private createTray(): void {
 		this.tray = new MinimaTray();
 		this.tray.create((bounds) => {
-			this.overlayWindow?.toggle(bounds);
+			void this.overlayWindow?.toggle(bounds);
 		}, this.settings.monochromeTrayIcon);
 	}
 }

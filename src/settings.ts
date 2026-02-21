@@ -27,7 +27,7 @@ export class MinimaSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Note")
-			.setDesc("The vault note that Minima reads and writes to.")
+			.setDesc("The vault note that minima reads and writes to.")
 			.addDropdown((dropdown) => {
 				dropdown.addOption("", "Select a note");
 
@@ -48,7 +48,6 @@ export class MinimaSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Always on top")
-			.setDesc("Keep the Minima window above other windows.")
 			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.settings.alwaysOnTop)
