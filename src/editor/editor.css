@@ -37,10 +37,9 @@ body {
 
 #note-title {
 	position: absolute;
-	top: 12px;
-	left: 16px;
+	bottom: 12px;
 	right: 16px;
-	max-width: none;
+	max-width: min(70%, 260px);
 	font-size: 18px;
 	font-weight: 500;
 	letter-spacing: 0.015em;
@@ -48,6 +47,7 @@ body {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	text-align: right;
 	pointer-events: none;
 	user-select: none;
 	z-index: 0;
