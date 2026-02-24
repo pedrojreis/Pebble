@@ -2,7 +2,7 @@
 
 A minimal Obsidian companion that lives in your menu bar for quick note-taking.
 
-Minima adds a small, always-accessible window from your system tray/menu bar. Point it at any markdown file in your vault and start writing — no need to keep the full Obsidian window front and center.
+Minima adds a small, always-accessible writing window from your system tray/menu bar. Point it at any markdown file in your vault and start writing without keeping the full Obsidian window front and center.
 
 ## Features
 
@@ -10,9 +10,10 @@ Minima adds a small, always-accessible window from your system tray/menu bar. Po
 - **Menu-bar toggle** — click the Minima icon to open/close the note window.
 - **Anchored window (macOS)** — opens near the menu bar icon for quick access.
 - **Auto-close on blur** — closes when you click outside the pop-out window.
-- **Single-file focus** — choose one markdown note from your vault; Minima reads and writes to that file only.
+- **Single-file focus** — choose one markdown note from your vault; Minima reads and writes only that file.
 - **Fast autosave** — edits are written back to disk automatically.
 - **Tray icon style** — choose between color and monochrome menu bar icons.
+- **Color mode** — choose a light or dark editor background.
 
 ## Installation
 
@@ -42,6 +43,7 @@ Minima adds a small, always-accessible window from your system tray/menu bar. Po
 | **Note**                     | The vault note that Minima reads and writes to.  | None    |
 | **Monochrome menu bar icon** | Use a template icon in the macOS menu bar.       | Off     |
 | **Show note title**          | Show the note title as a subtle background hint. | On      |
+| **Color mode**               | Choose a white or dark editor background.        | Dark    |
 
 ## Requirements
 
@@ -59,6 +61,9 @@ npm run dev
 
 # Production build
 npm run build
+
+# Lint
+npm run lint
 ```
 
 ## License
