@@ -58,10 +58,6 @@ export default class MinimaPlugin extends Plugin {
 		this.tray = null;
 	}
 
-	setAlwaysOnTop(flag: boolean): void {
-		this.overlayWindow?.setAlwaysOnTop(flag);
-	}
-
 	async setThemeMode(themeMode: MinimaThemeMode): Promise<void> {
 		await this.overlayWindow?.setThemeMode(themeMode);
 	}

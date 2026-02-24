@@ -12,7 +12,6 @@ Minima adds a small, always-accessible window from your system tray/menu bar. Po
 - **Auto-close on blur** — closes when you click outside the pop-out window.
 - **Single-file focus** — choose one markdown note from your vault; Minima reads and writes to that file only.
 - **Fast autosave** — edits are written back to disk automatically.
-- **Always on top** — optionally keep the window above other windows.
 - **Tray icon style** — choose between color and monochrome menu bar icons.
 
 ## Installation
@@ -41,7 +40,6 @@ Minima adds a small, always-accessible window from your system tray/menu bar. Po
 | Setting                      | Description                                      | Default |
 | ---------------------------- | ------------------------------------------------ | ------- |
 | **Note**                     | The vault note that Minima reads and writes to.  | None    |
-| **Always on top**            | Keep the note window above other windows.        | On      |
 | **Monochrome menu bar icon** | Use a template icon in the macOS menu bar.       | Off     |
 | **Show note title**          | Show the note title as a subtle background hint. | On      |
 

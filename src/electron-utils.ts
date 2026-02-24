@@ -35,7 +35,6 @@ interface ElectronBrowserWindowOptions {
 	height?: number;
 	x?: number;
 	y?: number;
-	alwaysOnTop?: boolean;
 	title?: string;
 	show?: boolean;
 	frame?: boolean;
@@ -54,7 +53,6 @@ export interface ElectronBrowserWindowInstance {
 	show(): void;
 	focus(): void;
 	setPosition(x: number, y: number, animate?: boolean): void;
-	setAlwaysOnTop(flag: boolean, level?: string): void;
 	on(event: string, callback: () => void): void;
 	webContents: ElectronWebContents;
 }

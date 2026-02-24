@@ -5,7 +5,6 @@ export type MinimaThemeMode = "light" | "dark";
 
 export interface MinimaSettings {
 	notePath: string;
-	alwaysOnTop: boolean;
 	monochromeTrayIcon: boolean;
 	showNoteTitle: boolean;
 	themeMode: MinimaThemeMode;
@@ -13,7 +12,6 @@ export interface MinimaSettings {
 
 export const DEFAULT_SETTINGS: MinimaSettings = {
 	notePath: "",
-	alwaysOnTop: true,
 	monochromeTrayIcon: false,
 	showNoteTitle: true,
 	themeMode: "dark",
@@ -50,21 +48,6 @@ export class MinimaSettingTab extends PluginSettingTab {
 					this.plugin.settings.notePath = normalizePath(value);
 					await this.plugin.saveSettings();
 				});
-			});
-
-		new Setting(containerEl)
-			.setName("Always on top")
-			.setDesc(
-				"Keep the minima window above other apps while it is open.",
-			)
-			.addToggle((toggle) => {
-				toggle
-					.setValue(this.plugin.settings.alwaysOnTop)
-					.onChange(async (value) => {
-						this.plugin.settings.alwaysOnTop = value;
-						await this.plugin.saveSettings();
-						this.plugin.setAlwaysOnTop(value);
-					});
 			});
 
 		new Setting(containerEl)

@@ -54,12 +54,6 @@ export class NativeWindow {
 		this.win = null;
 	}
 
-	setAlwaysOnTop(flag: boolean): void {
-		if (this.win && !this.win.isDestroyed()) {
-			this.win.setAlwaysOnTop(flag, "floating");
-		}
-	}
-
 	async setThemeMode(themeMode: MinimaThemeMode): Promise<void> {
 		if (!this.win || this.win.isDestroyed()) {
 			return;
@@ -144,7 +138,6 @@ export class NativeWindow {
 			const win = new remote.BrowserWindow({
 				width: POPOUT_WIDTH,
 				height: POPOUT_HEIGHT,
-				alwaysOnTop: settings.alwaysOnTop,
 				title: `${basename} — Minima`,
 				frame: process.platform === "darwin" ? false : undefined,
 				show: false,
@@ -184,10 +177,6 @@ export class NativeWindow {
 			win.show();
 			win.focus();
 			this.startSyncLoop(noteFile);
-
-			if (settings.alwaysOnTop) {
-				win.setAlwaysOnTop(true, "floating");
-			}
 		} catch (err) {
 			this.win = null;
 			const errorMessage =
