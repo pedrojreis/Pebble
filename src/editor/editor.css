@@ -11,6 +11,11 @@ body {
 	height: 100%;
 }
 
+:root {
+	--minima-editor-text-color: var(--text-normal, var(--text-on-accent, white));
+	--minima-editor-muted-color: var(--text-muted, var(--text-faint, var(--minima-editor-text-color)));
+}
+
 body {
 	font-family: var(
 		--font-text,
@@ -23,7 +28,7 @@ body {
 		sans-serif
 	);
 	background: var(--background-primary);
-	color: var(--text-normal);
+	color: var(--minima-editor-text-color);
 	display: flex;
 	justify-content: center;
 	align-items: stretch;
@@ -88,7 +93,7 @@ body {
 }
 
 #editor::placeholder {
-	color: var(--text-muted);
+	color: var(--minima-editor-muted-color);
 }
 
 @media (max-width: 560px) {
@@ -104,10 +109,10 @@ body {
 @media (prefers-color-scheme: dark) {
 	body {
 		background: var(--background-primary);
-		color: var(--text-normal);
+		color: var(--minima-editor-text-color);
 	}
 
 	#editor::placeholder {
-		color: var(--text-muted);
+		color: var(--minima-editor-muted-color);
 	}
 }
