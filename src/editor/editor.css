@@ -12,11 +12,18 @@ body {
 }
 
 body {
-	font-family:
-		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-		sans-serif;
-	background: #ffffff;
-	color: #1b1b1b;
+	font-family: var(
+		--font-text,
+		-apple-system,
+		BlinkMacSystemFont,
+		"Segoe UI",
+		Roboto,
+		Helvetica,
+		Arial,
+		sans-serif
+	);
+	background: var(--background-primary);
+	color: var(--text-normal);
 	display: flex;
 	justify-content: center;
 	align-items: stretch;
@@ -81,7 +88,7 @@ body {
 }
 
 #editor::placeholder {
-	color: #9b9b93;
+	color: var(--text-muted);
 }
 
 @media (max-width: 560px) {
@@ -96,16 +103,11 @@ body {
 
 @media (prefers-color-scheme: dark) {
 	body {
-		background: #191919;
-		color: #ededeb;
-	}
-
-	#editor-shell {
-		background: inherit;
-		box-shadow: none;
+		background: var(--background-primary);
+		color: var(--text-normal);
 	}
 
 	#editor::placeholder {
-		color: #808078;
+		color: var(--text-muted);
 	}
 }

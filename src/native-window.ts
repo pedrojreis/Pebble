@@ -1,4 +1,4 @@
-import { App, FileSystemAdapter, Notice } from "obsidian";
+import { App, Notice, TAbstractFile, TFile, normalizePath } from "obsidian";
 import {
 	ElectronBrowserWindowInstance,
 	ElectronRectangle,
@@ -16,6 +16,11 @@ export class NativeWindow {
 	private opening = false;
 	private app: App;
 	private readSettings: () => MinimaSettings;
+	private noteFile: TFile | null = null;
+	private syncInterval: number | null = null;
+	private isSaving = false;
+	private suppressModifyUntil = 0;
+	private lastKnownContent = "";
 
 	constructor(app: App, readSettings: () => MinimaSettings) {
 		this.app = app;
@@ -35,6 +40,12 @@ export class NativeWindow {
 	}
 
 	close(): void {
+		this.stopSyncLoop();
+		this.noteFile = null;
+		this.lastKnownContent = "";
+		this.suppressModifyUntil = 0;
+		this.isSaving = false;
+
 		if (!this.win || this.win.isDestroyed()) {
 			this.win = null;
 			return;
@@ -58,17 +69,47 @@ export class NativeWindow {
 		return true;
 	}
 
+	handleNotePathRenamed(oldPath: string, newPath: string): void {
+		if (!this.noteFile || this.noteFile.path !== oldPath) {
+			return;
+		}
+
+		const abstract = this.app.vault.getAbstractFileByPath(
+			normalizePath(newPath),
+		);
+		if (abstract instanceof TFile && abstract.extension === "md") {
+			this.noteFile = abstract;
+		}
+	}
+
+	onVaultModify(file: TAbstractFile): void {
+		if (
+			!(file instanceof TFile) ||
+			file.extension !== "md" ||
+			!this.noteFile ||
+			file.path !== this.noteFile.path ||
+			!this.isOpen() ||
+			this.isSaving ||
+			Date.now() < this.suppressModifyUntil
+		) {
+			return;
+		}
+
+		void this.reloadEditorFromVault(file);
+	}
+
 	private async open(anchorBounds?: ElectronRectangle): Promise<void> {
 		if (this.opening || this.isOpen()) {
 			return;
 		}
 
 		this.opening = true;
-		const filePath = this.resolveAbsolutePath();
-		if (!filePath) {
+		const noteFile = this.resolveNoteFile();
+		if (!noteFile) {
 			this.opening = false;
 			return;
 		}
+		this.noteFile = noteFile;
 
 		const remote = getRemote();
 		if (!remote) {
@@ -78,7 +119,8 @@ export class NativeWindow {
 		}
 
 		const settings = this.readSettings();
-		const initialContent = await this.readInitialContent(settings.notePath);
+		const initialContent = await this.readInitialContent(noteFile);
+		this.lastKnownContent = initialContent;
 		const basename =
 			settings.notePath.split("/").pop()?.replace(/\.md$/, "") ??
 			"Minima";
@@ -115,7 +157,6 @@ export class NativeWindow {
 			await win.loadURL("about:blank");
 
 			const html = buildEditorHTML(
-				filePath,
 				initialContent,
 				basename,
 				settings.showNoteTitle,
@@ -127,6 +168,7 @@ export class NativeWindow {
 			this.positionNearTray(win, remote, anchorBounds);
 			win.show();
 			win.focus();
+			this.startSyncLoop(noteFile);
 
 			if (settings.alwaysOnTop) {
 				win.setAlwaysOnTop(true, "floating");
@@ -176,57 +218,126 @@ export class NativeWindow {
 		win.setPosition(finalX, finalY, false);
 	}
 
-	private resolveAbsolutePath(): string | null {
+	private resolveNoteFile(): TFile | null {
 		const notePath = this.readSettings().notePath.trim();
 		if (!notePath) {
 			new Notice("Minima: select a note in plugin settings first.");
 			return null;
 		}
 
-		if (!notePath.endsWith(".md")) {
+		const normalizedPath = normalizePath(notePath);
+		if (!normalizedPath.endsWith(".md")) {
 			new Notice("Minima: selected note is not a Markdown file.");
 			return null;
 		}
 
-		const adapter = this.app.vault.adapter;
-		if (!(adapter instanceof FileSystemAdapter)) {
-			new Notice("Minima: only works on desktop with a local vault.");
+		const abstract = this.app.vault.getAbstractFileByPath(normalizedPath);
+		if (!(abstract instanceof TFile) || abstract.extension !== "md") {
+			new Notice("Minima: selected note does not exist in the vault.");
 			return null;
 		}
 
-		const basePath = adapter.getBasePath();
-		const requireFn = (
-			window as Window & {
-				require?: (id: string) => unknown;
-			}
-		).require;
-		const path = requireFn?.("path") as
-			| {
-					join: (...args: string[]) => string;
-			  }
-			| undefined;
-		if (!path) return null;
-
-		const absolutePath = path.join(basePath, notePath);
-
-		const fs = requireFn?.("fs") as
-			| {
-					existsSync: (p: string) => boolean;
-			  }
-			| undefined;
-		if (!fs?.existsSync(absolutePath)) {
-			new Notice("Minima: selected note does not exist on disk.");
-			return null;
-		}
-
-		return absolutePath;
+		return abstract;
 	}
 
-	private async readInitialContent(notePath: string): Promise<string> {
+	private async readInitialContent(file: TFile): Promise<string> {
 		try {
-			return await this.app.vault.adapter.read(notePath);
+			return await this.app.vault.cachedRead(file);
 		} catch {
 			return "";
+		}
+	}
+
+	private startSyncLoop(file: TFile): void {
+		this.stopSyncLoop();
+		this.syncInterval = window.setInterval(() => {
+			void this.syncEditorToVault(file);
+		}, 300);
+	}
+
+	private stopSyncLoop(): void {
+		if (this.syncInterval !== null) {
+			window.clearInterval(this.syncInterval);
+			this.syncInterval = null;
+		}
+	}
+
+	private async syncEditorToVault(file: TFile): Promise<void> {
+		if (!this.isOpen() || !this.noteFile || this.isSaving) {
+			return;
+		}
+
+		const currentContent = await this.readEditorContent();
+		if (
+			currentContent === null ||
+			currentContent === this.lastKnownContent
+		) {
+			return;
+		}
+
+		await this.saveToVault(file, currentContent);
+	}
+
+	private async saveToVault(file: TFile, content: string): Promise<void> {
+		this.isSaving = true;
+		this.suppressModifyUntil = Date.now() + 1500;
+
+		try {
+			const activeFile = this.app.workspace.getActiveFile();
+			const activeEditor = this.app.workspace.activeEditor?.editor;
+			if (activeFile?.path === file.path && activeEditor) {
+				activeEditor.setValue(content);
+				this.lastKnownContent = content;
+				return;
+			}
+
+			await this.app.vault.process(file, () => content);
+			this.lastKnownContent = content;
+		} catch (err) {
+			const errorMessage =
+				err instanceof Error ? err.message : String(err);
+			new Notice(`Minima: failed to save note — ${errorMessage}`);
+		} finally {
+			this.isSaving = false;
+		}
+	}
+
+	private async reloadEditorFromVault(file: TFile): Promise<void> {
+		const content = await this.readInitialContent(file);
+		if (content === this.lastKnownContent) {
+			return;
+		}
+
+		this.lastKnownContent = content;
+		await this.writeEditorContent(content);
+	}
+
+	private async readEditorContent(): Promise<string | null> {
+		if (!this.win || this.win.isDestroyed()) {
+			return null;
+		}
+
+		try {
+			const content = await this.win.webContents.executeJavaScript(
+				"window.__minimaEditor?.getContent?.() ?? null",
+			);
+			return typeof content === "string" ? content : null;
+		} catch {
+			return null;
+		}
+	}
+
+	private async writeEditorContent(content: string): Promise<void> {
+		if (!this.win || this.win.isDestroyed()) {
+			return;
+		}
+
+		try {
+			await this.win.webContents.executeJavaScript(
+				`window.__minimaEditor?.setContent?.(${JSON.stringify(content)});`,
+			);
+		} catch {
+			/* no-op */
 		}
 	}
 }

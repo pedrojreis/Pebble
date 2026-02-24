@@ -1,69 +1,18 @@
 const editorScriptTemplate = String.raw`(function() {
-	const fs = require('fs');
-	const filePath = '__FILE_PATH__';
 	const editor = document.getElementById('editor');
 	const fenceMarker = String.fromCharCode(96, 96, 96);
 	const initialContent = __INITIAL_CONTENT__;
 	if (!editor) return;
 
-	let saveTimeout = null;
-	let ignoreNextWatch = false;
-	let lastSavedValue = editor.value;
-	let isDirty = false;
-	let suppressWatchUntil = 0;
-	let externalReloadTimeout = null;
+	function updateContent(nextValue) {
+		if (typeof nextValue !== 'string') return;
+		if (nextValue === editor.value) return;
 
-	function loadFile() {
-		try {
-			const content = fs.readFileSync(filePath, 'utf-8');
-			const start = editor.selectionStart;
-			const end = editor.selectionEnd;
-			editor.value = content;
-			lastSavedValue = content;
-			editor.selectionStart = Math.min(start, content.length);
-			editor.selectionEnd = Math.min(end, content.length);
-		} catch (err) {
-			console.error('Minima: failed to read note file', err);
-		}
-	}
-
-	function saveNow() {
-		if (editor.value === lastSavedValue) return;
-		try {
-			ignoreNextWatch = true;
-			fs.writeFileSync(filePath, editor.value, 'utf-8');
-			lastSavedValue = editor.value;
-			isDirty = false;
-			suppressWatchUntil = Date.now() + 1200;
-			setTimeout(function() {
-				ignoreNextWatch = false;
-			}, 500);
-		} catch (err) {
-			console.error('Minima: failed to save', err);
-		}
-	}
-
-	function scheduleExternalReload() {
-		if (externalReloadTimeout) {
-			clearTimeout(externalReloadTimeout);
-		}
-
-		externalReloadTimeout = setTimeout(function() {
-			externalReloadTimeout = null;
-			if (saveTimeout || isDirty) {
-				scheduleExternalReload();
-				return;
-			}
-			loadFile();
-		}, 450);
-	}
-
-	function scheduleSave() {
-		if (saveTimeout) clearTimeout(saveTimeout);
-		saveTimeout = setTimeout(function() {
-			saveNow();
-			saveTimeout = null;
-		}, 300);
+		const start = editor.selectionStart;
+		const end = editor.selectionEnd;
+		editor.value = nextValue;
+		editor.selectionStart = Math.min(start, nextValue.length);
+		editor.selectionEnd = Math.min(end, nextValue.length);
 	}
 
 	function getCurrentLineBounds(pos) {
@@ -82,7 +31,7 @@ const editorScriptTemplate = String.raw`(function() {
 		const line = editor.value.slice(bounds.lineStart, bounds.lineEnd);
 
 		const codeFenceMatch = line.match(
-			new RegExp('^(\\\\s*)' + fenceMarker + '([a-zA-Z0-9_-]*)$'),
+			new RegExp('^(\\s*)' + fenceMarker + '([a-zA-Z0-9_-]*)$'),
 		);
 		if (codeFenceMatch) {
 			const indent = codeFenceMatch[1];
@@ -95,7 +44,6 @@ const editorScriptTemplate = String.raw`(function() {
 			const newCursor = cursor + 1 + indent.length;
 			editor.selectionStart = newCursor;
 			editor.selectionEnd = newCursor;
-			scheduleSave();
 			return true;
 		}
 
@@ -113,7 +61,6 @@ const editorScriptTemplate = String.raw`(function() {
 					'end',
 				);
 			}
-			scheduleSave();
 			return true;
 		}
 
@@ -126,7 +73,6 @@ const editorScriptTemplate = String.raw`(function() {
 			} else {
 				editor.setRangeText('\n' + indent + '- ', cursor, cursor, 'end');
 			}
-			scheduleSave();
 			return true;
 		}
 
@@ -145,7 +91,6 @@ const editorScriptTemplate = String.raw`(function() {
 					'end',
 				);
 			}
-			scheduleSave();
 			return true;
 		}
 
@@ -164,7 +109,6 @@ const editorScriptTemplate = String.raw`(function() {
 					'end',
 				);
 			}
-			scheduleSave();
 			return true;
 		}
 
@@ -181,7 +125,6 @@ const editorScriptTemplate = String.raw`(function() {
 		const bulletMatch = beforeCursor.match(/^(\s*)([+*])$/);
 		if (bulletMatch) {
 			editor.setRangeText(bulletMatch[1] + '- ', bounds.lineStart, cursor, 'end');
-			scheduleSave();
 			return true;
 		}
 
@@ -193,7 +136,6 @@ const editorScriptTemplate = String.raw`(function() {
 				cursor,
 				'end',
 			);
-			scheduleSave();
 			return true;
 		}
 
@@ -205,7 +147,6 @@ const editorScriptTemplate = String.raw`(function() {
 				cursor,
 				'end',
 			);
-			scheduleSave();
 			return true;
 		}
 
@@ -217,7 +158,6 @@ const editorScriptTemplate = String.raw`(function() {
 				cursor,
 				'end',
 			);
-			scheduleSave();
 			return true;
 		}
 
@@ -233,7 +173,6 @@ const editorScriptTemplate = String.raw`(function() {
 				cursor,
 				'end',
 			);
-			scheduleSave();
 			return true;
 		}
 
@@ -245,7 +184,6 @@ const editorScriptTemplate = String.raw`(function() {
 				cursor,
 				'end',
 			);
-			scheduleSave();
 			return true;
 		}
 
@@ -269,7 +207,6 @@ const editorScriptTemplate = String.raw`(function() {
 				bounds.lineEnd,
 				'end',
 			);
-			scheduleSave();
 			return true;
 		}
 
@@ -295,22 +232,6 @@ const editorScriptTemplate = String.raw`(function() {
 		return false;
 	}
 
-	let watcher = null;
-	try {
-		watcher = fs.watch(filePath, function(eventType) {
-			if (eventType !== 'change') return;
-			if (ignoreNextWatch) return;
-			if (Date.now() < suppressWatchUntil) return;
-			if (saveTimeout || isDirty) {
-				scheduleExternalReload();
-				return;
-			}
-			loadFile();
-		});
-	} catch (err) {
-		console.error('Minima: failed to watch file', err);
-	}
-
 	editor.addEventListener('keydown', function(event) {
 		if (event.key === 'Enter' && continueMarkdownList()) {
 			event.preventDefault();
@@ -327,23 +248,19 @@ const editorScriptTemplate = String.raw`(function() {
 		}
 	});
 
-	editor.addEventListener('input', function() {
-		isDirty = true;
-		scheduleSave();
-	});
-	editor.addEventListener('blur', saveNow);
+	window.__minimaEditor = {
+		getContent: function() {
+			return editor.value;
+		},
+		setContent: function(content) {
+			updateContent(content);
+		},
+	};
+
 	if (!editor.value && initialContent) {
 		editor.value = initialContent;
-		lastSavedValue = initialContent;
 	}
-	loadFile();
 	editor.focus();
-
-	window.addEventListener('beforeunload', function() {
-		if (watcher) watcher.close();
-		if (saveTimeout) clearTimeout(saveTimeout);
-		saveNow();
-	});
 })();`;
 
 export default editorScriptTemplate;

@@ -29,7 +29,14 @@ export default class MinimaPlugin extends Plugin {
 				}
 
 				this.settings.notePath = file.path;
+				this.overlayWindow?.handleNotePathRenamed(oldPath, file.path);
 				void this.saveSettings();
+			}),
+		);
+
+		this.registerEvent(
+			this.app.vault.on("modify", (file) => {
+				this.overlayWindow?.onVaultModify(file);
 			}),
 		);
 

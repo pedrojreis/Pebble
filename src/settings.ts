@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, TFile } from "obsidian";
+import { App, PluginSettingTab, Setting, TFile, normalizePath } from "obsidian";
 import type MinimaPlugin from "./main";
 
 export interface MinimaSettings {
@@ -43,7 +43,7 @@ export class MinimaSettingTab extends PluginSettingTab {
 
 				dropdown.setValue(this.plugin.settings.notePath);
 				dropdown.onChange(async (value) => {
-					this.plugin.settings.notePath = value;
+					this.plugin.settings.notePath = normalizePath(value);
 					await this.plugin.saveSettings();
 				});
 			});
@@ -95,7 +95,7 @@ export class MinimaSettingTab extends PluginSettingTab {
 	private getSelectedFile(): TFile | null {
 		if (!this.plugin.settings.notePath) return null;
 		const abstract = this.app.vault.getAbstractFileByPath(
-			this.plugin.settings.notePath,
+			normalizePath(this.plugin.settings.notePath),
 		);
 		if (!(abstract instanceof TFile) || abstract.extension !== "md")
 			return null;
