@@ -5,7 +5,7 @@ import {
 	getRemote,
 } from "./electron-utils";
 import { buildEditorHTML } from "./editor-html";
-import { MinimaSettings } from "./settings";
+import { MinimaSettings, MinimaThemeMode } from "./settings";
 
 const POPOUT_WIDTH = 420;
 const POPOUT_HEIGHT = 320;
@@ -57,6 +57,21 @@ export class NativeWindow {
 	setAlwaysOnTop(flag: boolean): void {
 		if (this.win && !this.win.isDestroyed()) {
 			this.win.setAlwaysOnTop(flag, "floating");
+		}
+	}
+
+	async setThemeMode(themeMode: MinimaThemeMode): Promise<void> {
+		if (!this.win || this.win.isDestroyed()) {
+			return;
+		}
+
+		const normalizedTheme = themeMode === "light" ? "light" : "dark";
+		try {
+			await this.win.webContents.executeJavaScript(
+				`document.body.setAttribute("data-minima-theme", ${JSON.stringify(normalizedTheme)});`,
+			);
+		} catch {
+			/* no-op */
 		}
 	}
 
@@ -158,6 +173,7 @@ export class NativeWindow {
 				initialContent,
 				basename,
 				settings.showNoteTitle,
+				settings.themeMode,
 			);
 			const editorDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(
 				html,

@@ -1,6 +1,7 @@
 import editorTemplate from "./editor/editor-template.html";
 import editorStyles from "./editor/editor.css";
 import editorScriptTemplate from "./editor/editor-script.template.js";
+import { MinimaThemeMode } from "./settings";
 
 function replaceToken(template: string, token: string, value: string): string {
 	return template.split(token).join(value);
@@ -8,14 +9,15 @@ function replaceToken(template: string, token: string, value: string): string {
 
 /**
  * Builds the complete HTML document string for the standalone Minima editor.
- * The returned HTML runs inside an Electron BrowserWindow with nodeIntegration
- * and uses Node's fs module for direct file I/O.
  */
 export function buildEditorHTML(
 	initialContent: string,
 	noteTitle: string,
 	showNoteTitle: boolean,
+	themeMode: MinimaThemeMode,
 ): string {
+	const normalizedTheme = themeMode === "light" ? "light" : "dark";
+	const themeBodyAttr = `data-minima-theme="${normalizedTheme}"`;
 	const escapedNoteTitleForHtml = noteTitle
 		.replace(/&/g, "&amp;")
 		.replace(/</g, "&lt;")
@@ -29,25 +31,21 @@ export function buildEditorHTML(
 		.split("__INITIAL_CONTENT__")
 		.join(serializedInitialContent);
 
-	return replaceToken(
-		replaceToken(
-			replaceToken(
-				replaceToken(
-					replaceToken(
-						editorTemplate,
-						"__EDITOR_STYLE__",
-						editorStyles,
-					),
-					"__NOTE_TITLE_HIDDEN_ATTR__",
-					showNoteTitle ? "" : "hidden",
-				),
-				"__INITIAL_CONTENT__",
-				escapedInitialContentForTextarea,
-			),
-			"__NOTE_TITLE__",
-			escapedNoteTitleForHtml,
-		),
-		"__EDITOR_SCRIPT__",
-		editorScript,
+	let html = editorTemplate;
+	html = replaceToken(html, "__EDITOR_STYLE__", editorStyles);
+	html = replaceToken(html, "__THEME_BODY_ATTR__", themeBodyAttr);
+	html = replaceToken(
+		html,
+		"__NOTE_TITLE_HIDDEN_ATTR__",
+		showNoteTitle ? "" : "hidden",
 	);
+	html = replaceToken(
+		html,
+		"__INITIAL_CONTENT__",
+		escapedInitialContentForTextarea,
+	);
+	html = replaceToken(html, "__NOTE_TITLE__", escapedNoteTitleForHtml);
+	html = replaceToken(html, "__EDITOR_SCRIPT__", editorScript);
+
+	return html;
 }

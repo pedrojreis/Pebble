@@ -1,5 +1,10 @@
 import { Plugin, TFile } from "obsidian";
-import { DEFAULT_SETTINGS, MinimaSettings, MinimaSettingTab } from "./settings";
+import {
+	DEFAULT_SETTINGS,
+	MinimaSettings,
+	MinimaSettingTab,
+	MinimaThemeMode,
+} from "./settings";
 import { NativeWindow } from "./native-window";
 import { MinimaTray } from "./tray";
 
@@ -55,6 +60,10 @@ export default class MinimaPlugin extends Plugin {
 
 	setAlwaysOnTop(flag: boolean): void {
 		this.overlayWindow?.setAlwaysOnTop(flag);
+	}
+
+	async setThemeMode(themeMode: MinimaThemeMode): Promise<void> {
+		await this.overlayWindow?.setThemeMode(themeMode);
 	}
 
 	refreshTrayIcon(): void {

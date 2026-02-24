@@ -1,11 +1,14 @@
 import { App, PluginSettingTab, Setting, TFile, normalizePath } from "obsidian";
 import type MinimaPlugin from "./main";
 
+export type MinimaThemeMode = "light" | "dark";
+
 export interface MinimaSettings {
 	notePath: string;
 	alwaysOnTop: boolean;
 	monochromeTrayIcon: boolean;
 	showNoteTitle: boolean;
+	themeMode: MinimaThemeMode;
 }
 
 export const DEFAULT_SETTINGS: MinimaSettings = {
@@ -13,6 +16,7 @@ export const DEFAULT_SETTINGS: MinimaSettings = {
 	alwaysOnTop: true,
 	monochromeTrayIcon: false,
 	showNoteTitle: true,
+	themeMode: "dark",
 };
 
 export class MinimaSettingTab extends PluginSettingTab {
@@ -81,6 +85,23 @@ export class MinimaSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.showNoteTitle)
 					.onChange(async (value) => {
 						this.plugin.settings.showNoteTitle = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Color mode")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("light", "White mode")
+					.addOption("dark", "Dark mode")
+					.setValue(this.plugin.settings.themeMode)
+					.onChange(async (value) => {
+						if (value !== "light" && value !== "dark") {
+							return;
+						}
+
+						this.plugin.settings.themeMode = value;
 						await this.plugin.saveSettings();
 					});
 			});
