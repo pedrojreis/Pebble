@@ -12,8 +12,14 @@ body {
 }
 
 :root {
-	--minima-editor-text-color: var(--text-normal, var(--text-on-accent, white));
-	--minima-editor-muted-color: var(--text-muted, var(--text-faint, var(--minima-editor-text-color)));
+	--minima-editor-text-color: var(
+		--text-normal,
+		var(--text-on-accent, white)
+	);
+	--minima-editor-muted-color: var(
+		--text-muted,
+		var(--text-faint, var(--minima-editor-text-color))
+	);
 }
 
 body {
