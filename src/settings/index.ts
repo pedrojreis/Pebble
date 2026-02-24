@@ -1,5 +1,10 @@
-import { App, PluginSettingTab, Setting, normalizePath } from "obsidian";
-import type MinimaPlugin from "../main";
+import {
+	App,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	normalizePath,
+} from "obsidian";
 
 export type MinimaThemeMode = "light" | "dark";
 
@@ -17,10 +22,16 @@ export const DEFAULT_SETTINGS: MinimaSettings = {
 	themeMode: "dark",
 };
 
-export class MinimaSettingTab extends PluginSettingTab {
-	private plugin: MinimaPlugin;
+type SettingsTabPluginHost = Plugin & {
+	settings: MinimaSettings;
+	saveSettings(): Promise<void>;
+	refreshTrayIcon(): void;
+};
 
-	constructor(app: App, plugin: MinimaPlugin) {
+export class MinimaSettingTab extends PluginSettingTab {
+	private plugin: SettingsTabPluginHost;
+
+	constructor(app: App, plugin: SettingsTabPluginHost) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}

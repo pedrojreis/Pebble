@@ -3,7 +3,6 @@ import {
 	DEFAULT_SETTINGS,
 	MinimaSettings,
 	MinimaSettingTab,
-	MinimaThemeMode,
 } from "./settings";
 import { NativeWindow } from "./window/native-window";
 import { MinimaTray } from "./tray";
@@ -56,10 +55,6 @@ export default class MinimaPlugin extends Plugin {
 
 		this.tray?.destroy();
 		this.tray = null;
-	}
-
-	async setThemeMode(themeMode: MinimaThemeMode): Promise<void> {
-		await this.overlayWindow?.setThemeMode(themeMode);
 	}
 
 	refreshTrayIcon(): void {
