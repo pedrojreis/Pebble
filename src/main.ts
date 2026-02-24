@@ -1,9 +1,5 @@
 import { Plugin, TFile } from "obsidian";
-import {
-	DEFAULT_SETTINGS,
-	MinimaSettings,
-	MinimaSettingTab,
-} from "./settings";
+import { DEFAULT_SETTINGS, MinimaSettings, MinimaSettingTab } from "./settings";
 import { NativeWindow } from "./window/native-window";
 import { MinimaTray } from "./tray";
 
