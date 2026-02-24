@@ -42,6 +42,7 @@ interface ElectronBrowserWindowOptions {
 	webPreferences?: {
 		nodeIntegration?: boolean;
 		contextIsolation?: boolean;
+		sandbox?: boolean;
 	};
 }
 

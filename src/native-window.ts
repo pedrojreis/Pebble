@@ -134,8 +134,8 @@ export class NativeWindow {
 				frame: process.platform === "darwin" ? false : undefined,
 				show: false,
 				webPreferences: {
-					nodeIntegration: true,
-					contextIsolation: false,
+					nodeIntegration: false,
+					contextIsolation: true,
 				},
 			});
 
@@ -154,16 +154,15 @@ export class NativeWindow {
 
 			this.win = win;
 
-			await win.loadURL("about:blank");
-
 			const html = buildEditorHTML(
 				initialContent,
 				basename,
 				settings.showNoteTitle,
 			);
-			await win.webContents.executeJavaScript(
-				`document.open(); document.write(${JSON.stringify(html)}); document.close();`,
-			);
+			const editorDataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(
+				html,
+			)}`;
+			await win.loadURL(editorDataUrl);
 
 			this.positionNearTray(win, remote, anchorBounds);
 			win.show();
