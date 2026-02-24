@@ -3,9 +3,9 @@ import {
 	ElectronBrowserWindowInstance,
 	ElectronRectangle,
 	getRemote,
-} from "./electron-utils";
+} from "../electron/utils";
 import { buildEditorHTML } from "./editor-html";
-import { MinimaSettings, MinimaThemeMode } from "./settings";
+import { MinimaSettings, MinimaThemeMode } from "../settings";
 
 const POPOUT_WIDTH = 420;
 const POPOUT_HEIGHT = 320;

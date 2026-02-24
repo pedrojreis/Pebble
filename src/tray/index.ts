@@ -1,9 +1,13 @@
-import { getRemote, ElectronRectangle, ElectronTray } from "./electron-utils";
+import {
+	getRemote,
+	ElectronRectangle,
+	ElectronTray,
+} from "../electron/utils";
 import {
 	OBSIDIAN_ICON_PATH,
 	TRAY_ICON_COLOR_DATA_URL,
 	TRAY_ICON_MONOCHROME_DATA_URL,
-} from "./assets/icons";
+} from "./icons";
 
 const GLOBAL_TRAY_KEY = "__minima_tray_instance__";
 

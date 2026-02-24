@@ -1,5 +1,5 @@
 import { App, PluginSettingTab, Setting, normalizePath } from "obsidian";
-import type MinimaPlugin from "./main";
+import type MinimaPlugin from "../main";
 
 export type MinimaThemeMode = "light" | "dark";
 

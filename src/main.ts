@@ -5,7 +5,7 @@ import {
 	MinimaSettingTab,
 	MinimaThemeMode,
 } from "./settings";
-import { NativeWindow } from "./native-window";
+import { NativeWindow } from "./window/native-window";
 import { MinimaTray } from "./tray";
 
 export default class MinimaPlugin extends Plugin {

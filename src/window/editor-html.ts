@@ -1,7 +1,7 @@
-import editorTemplate from "./editor/editor-template.html";
-import editorStyles from "./editor/editor.css";
-import editorScriptTemplate from "./editor/editor-script.template.js";
-import { MinimaThemeMode } from "./settings";
+import editorTemplate from "../editor/editor-template.html";
+import editorStyles from "../editor/editor.css";
+import editorScriptTemplate from "../editor/editor-script.template.js";
+import { MinimaThemeMode } from "../settings";
 
 function replaceToken(template: string, token: string, value: string): string {
 	return template.split(token).join(value);
