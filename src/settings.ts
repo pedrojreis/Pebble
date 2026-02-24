@@ -54,7 +54,9 @@ export class MinimaSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Always on top")
-			.setDesc("Keep the minima window above other apps while it is open.")
+			.setDesc(
+				"Keep the minima window above other apps while it is open.",
+			)
 			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.settings.alwaysOnTop)
@@ -67,7 +69,9 @@ export class MinimaSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Monochrome menu bar icon")
-			.setDesc("Use a monochrome icon that blends with the macOS menu bar.")
+			.setDesc(
+				"Use a monochrome icon that blends with the macOS menu bar.",
+			)
 			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.settings.monochromeTrayIcon)
@@ -80,7 +84,9 @@ export class MinimaSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Show note title")
-			.setDesc("Show the current note title as a subtle watermark in the editor.")
+			.setDesc(
+				"Show the current note title as a subtle watermark in the editor.",
+			)
 			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.settings.showNoteTitle)
@@ -92,7 +98,9 @@ export class MinimaSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Color mode")
-			.setDesc("Choose whether the minima editor uses a white or dark background.")
+			.setDesc(
+				"Choose whether the minima editor uses a white or dark background.",
+			)
 			.addDropdown((dropdown) => {
 				dropdown
 					.addOption("light", "White mode")
