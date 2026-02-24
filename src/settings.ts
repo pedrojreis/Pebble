@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, TFile, normalizePath } from "obsidian";
+import { App, PluginSettingTab, Setting, normalizePath } from "obsidian";
 import type MinimaPlugin from "./main";
 
 export type MinimaThemeMode = "light" | "dark";
@@ -115,21 +115,5 @@ export class MinimaSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 			});
-
-		const statusEl = containerEl.createDiv({ cls: "minima-note-status" });
-		const file = this.getSelectedFile();
-		statusEl.setText(
-			file ? `Selected note: ${file.path}` : "Selected note: none",
-		);
-	}
-
-	private getSelectedFile(): TFile | null {
-		if (!this.plugin.settings.notePath) return null;
-		const abstract = this.app.vault.getAbstractFileByPath(
-			normalizePath(this.plugin.settings.notePath),
-		);
-		if (!(abstract instanceof TFile) || abstract.extension !== "md")
-			return null;
-		return abstract;
 	}
 }
