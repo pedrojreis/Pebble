@@ -1,4 +1,4 @@
-# Pebble
+# <center>🪨 Pebble</center>
 
 A minimal Obsidian companion that lives in your menu bar for quick note-taking.
 
