@@ -1,0 +1,36 @@
+name: Release Obsidian plugin
+
+on:
+    push:
+        tags:
+            - "*"
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
+
+            - name: Use Node.js
+              uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610 # v3
+              with:
+                  node-version: "18.x"
+
+            - name: Build plugin
+              run: |
+                  npm install
+                  npm run build
+
+            - name: Create release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  tag="${GITHUB_REF#refs/tags/}"
+
+                  gh release create "$tag" \
+                    --title="$tag" \
+                    --draft \
+                    --generate-notes \
+                    main.js manifest.json styles.css
