@@ -248,7 +248,7 @@ const editorScriptTemplate = String.raw`(function() {
 		}
 	});
 
-	window.__minimaEditor = {
+	window.__pebbleEditor = {
 		getContent: function() {
 			return editor.value;
 		},

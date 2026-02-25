@@ -6,16 +6,16 @@ import {
 	normalizePath,
 } from "obsidian";
 
-export type MinimaThemeMode = "light" | "dark";
+export type PebbleThemeMode = "light" | "dark";
 
-export interface MinimaSettings {
+export interface PebbleSettings {
 	notePath: string;
 	monochromeTrayIcon: boolean;
 	showNoteTitle: boolean;
-	themeMode: MinimaThemeMode;
+	themeMode: PebbleThemeMode;
 }
 
-export const DEFAULT_SETTINGS: MinimaSettings = {
+export const DEFAULT_SETTINGS: PebbleSettings = {
 	notePath: "",
 	monochromeTrayIcon: false,
 	showNoteTitle: true,
@@ -23,12 +23,12 @@ export const DEFAULT_SETTINGS: MinimaSettings = {
 };
 
 type SettingsTabPluginHost = Plugin & {
-	settings: MinimaSettings;
+	settings: PebbleSettings;
 	saveSettings(): Promise<void>;
 	refreshTrayIcon(): void;
 };
 
-export class MinimaSettingTab extends PluginSettingTab {
+export class PebbleSettingTab extends PluginSettingTab {
 	private plugin: SettingsTabPluginHost;
 
 	constructor(app: App, plugin: SettingsTabPluginHost) {
@@ -42,7 +42,7 @@ export class MinimaSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Note")
-			.setDesc("Choose the note that minima opens and saves as you type.")
+			.setDesc("Choose the note that Pebble opens and saves as you type.")
 			.addDropdown((dropdown) => {
 				dropdown.addOption("", "Select a note");
 
@@ -93,7 +93,7 @@ export class MinimaSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Color mode")
 			.setDesc(
-				"Choose whether the minima editor uses a white or dark background.",
+				"Choose whether the Pebble editor uses a white or dark background.",
 			)
 			.addDropdown((dropdown) => {
 				dropdown

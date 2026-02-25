@@ -1,12 +1,12 @@
 import { Plugin, TFile } from "obsidian";
-import { DEFAULT_SETTINGS, MinimaSettings, MinimaSettingTab } from "./settings";
+import { DEFAULT_SETTINGS, PebbleSettings, PebbleSettingTab } from "./settings";
 import { NativeWindow } from "./window/native-window";
-import { MinimaTray } from "./tray";
+import { PebbleTray } from "./tray";
 
-export default class MinimaPlugin extends Plugin {
-	settings: MinimaSettings = { ...DEFAULT_SETTINGS };
+export default class PebblePlugin extends Plugin {
+	settings: PebbleSettings = { ...DEFAULT_SETTINGS };
 	private overlayWindow: NativeWindow | null = null;
-	private tray: MinimaTray | null = null;
+	private tray: PebbleTray | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -42,7 +42,7 @@ export default class MinimaPlugin extends Plugin {
 
 		this.createTray();
 
-		this.addSettingTab(new MinimaSettingTab(this.app, this));
+		this.addSettingTab(new PebbleSettingTab(this.app, this));
 	}
 
 	onunload(): void {
@@ -64,12 +64,12 @@ export default class MinimaPlugin extends Plugin {
 
 	private async loadSettings(): Promise<void> {
 		const storedSettings =
-			(await this.loadData()) as Partial<MinimaSettings> | null;
+			(await this.loadData()) as Partial<PebbleSettings> | null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, storedSettings);
 	}
 
 	private createTray(): void {
-		this.tray = new MinimaTray();
+		this.tray = new PebbleTray();
 		this.tray.create((bounds) => {
 			void this.overlayWindow?.toggle(bounds);
 		}, this.settings.monochromeTrayIcon);

@@ -1,6 +1,6 @@
 {
-	"id": "minima",
-	"name": "Minima",
+	"id": "pebble",
+	"name": "Pebble",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "A Minimal companion for quick note taking.",

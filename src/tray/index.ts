@@ -5,7 +5,7 @@ import {
 	TRAY_ICON_MONOCHROME_DATA_URL,
 } from "./icons";
 
-const GLOBAL_TRAY_KEY = "__minima_tray_instance__";
+const GLOBAL_TRAY_KEY = "__pebble_tray_instance__";
 
 function getGlobalTray(): ElectronTray | null {
 	const value = (
@@ -27,7 +27,7 @@ function setGlobalTray(tray: ElectronTray | null): void {
 	delete target[GLOBAL_TRAY_KEY];
 }
 
-export class MinimaTray {
+export class PebbleTray {
 	private tray: ElectronTray | null = null;
 
 	private buildTrayIcon(
@@ -90,7 +90,7 @@ export class MinimaTray {
 
 		this.tray = new remote.Tray(trayIcon);
 		setGlobalTray(this.tray);
-		this.tray.setToolTip("Minima");
+		this.tray.setToolTip("Pebble");
 		this.tray.on("click", (_event, bounds) => {
 			onClick(bounds ?? this.tray?.getBounds());
 		});

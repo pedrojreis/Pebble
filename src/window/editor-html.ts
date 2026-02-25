@@ -1,23 +1,23 @@
 import editorTemplate from "../editor/editor-template.html";
 import editorStyles from "../editor/editor.css";
 import editorScriptTemplate from "../editor/editor-script.template.js";
-import { MinimaThemeMode } from "../settings";
+import { PebbleThemeMode } from "../settings";
 
 function replaceToken(template: string, token: string, value: string): string {
 	return template.split(token).join(value);
 }
 
 /**
- * Builds the complete HTML document string for the standalone Minima editor.
+ * Builds the complete HTML document string for the standalone Pebble editor.
  */
 export function buildEditorHTML(
 	initialContent: string,
 	noteTitle: string,
 	showNoteTitle: boolean,
-	themeMode: MinimaThemeMode,
+	themeMode: PebbleThemeMode,
 ): string {
 	const normalizedTheme = themeMode === "light" ? "light" : "dark";
-	const themeBodyAttr = `data-minima-theme="${normalizedTheme}"`;
+	const themeBodyAttr = `data-pebble-theme="${normalizedTheme}"`;
 	const escapedNoteTitleForHtml = noteTitle
 		.replace(/&/g, "&amp;")
 		.replace(/</g, "&lt;")

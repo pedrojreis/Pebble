@@ -5,7 +5,7 @@ import {
 	getRemote,
 } from "../electron/utils";
 import { buildEditorHTML } from "./editor-html";
-import { MinimaSettings } from "../settings";
+import { PebbleSettings } from "../settings";
 
 const POPOUT_WIDTH = 420;
 const POPOUT_HEIGHT = 320;
@@ -15,14 +15,14 @@ export class NativeWindow {
 	private win: ElectronBrowserWindowInstance | null = null;
 	private opening = false;
 	private app: App;
-	private readSettings: () => MinimaSettings;
+	private readSettings: () => PebbleSettings;
 	private noteFile: TFile | null = null;
 	private syncInterval: number | null = null;
 	private isSaving = false;
 	private suppressModifyUntil = 0;
 	private lastKnownContent = "";
 
-	constructor(app: App, readSettings: () => MinimaSettings) {
+	constructor(app: App, readSettings: () => PebbleSettings) {
 		this.app = app;
 		this.readSettings = readSettings;
 	}
@@ -107,7 +107,7 @@ export class NativeWindow {
 
 		const remote = getRemote();
 		if (!remote) {
-			new Notice("Minima: electron remote is not available.");
+			new Notice("Pebble: electron remote is not available.");
 			this.opening = false;
 			return;
 		}
@@ -117,13 +117,13 @@ export class NativeWindow {
 		this.lastKnownContent = initialContent;
 		const basename =
 			settings.notePath.split("/").pop()?.replace(/\.md$/, "") ??
-			"Minima";
+			"Pebble";
 
 		try {
 			const win = new remote.BrowserWindow({
 				width: POPOUT_WIDTH,
 				height: POPOUT_HEIGHT,
-				title: `${basename} — Minima`,
+				title: `${basename} — Pebble`,
 				frame: process.platform === "darwin" ? false : undefined,
 				show: false,
 				webPreferences: {
@@ -166,8 +166,8 @@ export class NativeWindow {
 			this.win = null;
 			const errorMessage =
 				err instanceof Error ? err.message : String(err);
-			new Notice(`Minima: failed to open window — ${errorMessage}`);
-			console.error("Minima: failed to open window", err);
+			new Notice(`Pebble: failed to open window — ${errorMessage}`);
+			console.error("Pebble: failed to open window", err);
 		} finally {
 			this.opening = false;
 		}
@@ -210,19 +210,19 @@ export class NativeWindow {
 	private resolveNoteFile(): TFile | null {
 		const notePath = this.readSettings().notePath.trim();
 		if (!notePath) {
-			new Notice("Minima: select a note in plugin settings first.");
+			new Notice("Pebble: select a note in plugin settings first.");
 			return null;
 		}
 
 		const normalizedPath = normalizePath(notePath);
 		if (!normalizedPath.endsWith(".md")) {
-			new Notice("Minima: selected note is not a Markdown file.");
+			new Notice("Pebble: selected note is not a Markdown file.");
 			return null;
 		}
 
 		const abstract = this.app.vault.getAbstractFileByPath(normalizedPath);
 		if (!(abstract instanceof TFile) || abstract.extension !== "md") {
-			new Notice("Minima: selected note does not exist in the vault.");
+			new Notice("Pebble: selected note does not exist in the vault.");
 			return null;
 		}
 
@@ -285,7 +285,7 @@ export class NativeWindow {
 		} catch (err) {
 			const errorMessage =
 				err instanceof Error ? err.message : String(err);
-			new Notice(`Minima: failed to save note — ${errorMessage}`);
+			new Notice(`Pebble: failed to save note — ${errorMessage}`);
 		} finally {
 			this.isSaving = false;
 		}
@@ -308,7 +308,7 @@ export class NativeWindow {
 
 		try {
 			const content = await this.win.webContents.executeJavaScript(
-				"window.__minimaEditor?.getContent?.() ?? null",
+				"window.__pebbleEditor?.getContent?.() ?? null",
 			);
 			return typeof content === "string" ? content : null;
 		} catch {
@@ -323,7 +323,7 @@ export class NativeWindow {
 
 		try {
 			await this.win.webContents.executeJavaScript(
-				`window.__minimaEditor?.setContent?.(${JSON.stringify(content)});`,
+				`window.__pebbleEditor?.setContent?.(${JSON.stringify(content)});`,
 			);
 		} catch {
 			/* no-op */

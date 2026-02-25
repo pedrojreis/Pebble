@@ -12,21 +12,21 @@ body {
 }
 
 :root {
-	--minima-editor-bg-color: #0f1114;
-	--minima-editor-text-color: #e6e9ee;
-	--minima-editor-muted-color: #9aa3b2;
+	--pebble-editor-bg-color: #0f1114;
+	--pebble-editor-text-color: #e6e9ee;
+	--pebble-editor-muted-color: #9aa3b2;
 }
 
-body[data-minima-theme="light"] {
-	--minima-editor-bg-color: #ffffff;
-	--minima-editor-text-color: #1f2328;
-	--minima-editor-muted-color: #68707d;
+body[data-pebble-theme="light"] {
+	--pebble-editor-bg-color: #ffffff;
+	--pebble-editor-text-color: #1f2328;
+	--pebble-editor-muted-color: #68707d;
 }
 
-body[data-minima-theme="dark"] {
-	--minima-editor-bg-color: #0f1114;
-	--minima-editor-text-color: #e6e9ee;
-	--minima-editor-muted-color: #9aa3b2;
+body[data-pebble-theme="dark"] {
+	--pebble-editor-bg-color: #0f1114;
+	--pebble-editor-text-color: #e6e9ee;
+	--pebble-editor-muted-color: #9aa3b2;
 }
 
 body {
@@ -40,8 +40,8 @@ body {
 		Arial,
 		sans-serif
 	);
-	background: var(--minima-editor-bg-color);
-	color: var(--minima-editor-text-color);
+	background: var(--pebble-editor-bg-color);
+	color: var(--pebble-editor-text-color);
 	display: flex;
 	justify-content: center;
 	align-items: stretch;
@@ -106,7 +106,7 @@ body {
 }
 
 #editor::placeholder {
-	color: var(--minima-editor-muted-color);
+	color: var(--pebble-editor-muted-color);
 }
 
 @media (max-width: 560px) {

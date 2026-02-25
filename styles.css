@@ -1,6 +1,6 @@
-/* Minima plugin styles */
+/* Pebble plugin styles */
 
-.minima-note-status {
+.pebble-note-status {
 	margin-top: 8px;
 	font-size: var(--font-ui-small);
 	color: var(--text-muted);
