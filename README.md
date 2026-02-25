@@ -1,4 +1,4 @@
-# <center>🪨 Pebble</center>
+<h1 align="center">🪨 Pebble</h1>
 
 A minimal Obsidian companion that lives in your menu bar for quick note-taking.
 
@@ -53,23 +53,3 @@ Pebble adds a small, always-accessible writing window from your system tray/menu
 
 - Obsidian **v0.15.0** or later.
 - Desktop only (macOS, Windows, Linux). Mobile is not supported.
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Build in watch mode
-npm run dev
-
-# Production build
-npm run build
-
-# Lint
-npm run lint
-```
-
-## License
-
-[MIT](LICENSE)
