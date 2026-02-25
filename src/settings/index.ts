@@ -42,7 +42,7 @@ export class PebbleSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Note")
-			.setDesc("Choose the note that Pebble opens and saves as you type.")
+			.setDesc("Choose the note that pebble opens and saves as you type.")
 			.addDropdown((dropdown) => {
 				dropdown.addOption("", "Select a note");
 
@@ -93,7 +93,7 @@ export class PebbleSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Color mode")
 			.setDesc(
-				"Choose whether the Pebble editor uses a white or dark background.",
+				"Choose whether the pebble editor uses a white or dark background.",
 			)
 			.addDropdown((dropdown) => {
 				dropdown
