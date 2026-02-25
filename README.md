@@ -15,6 +15,10 @@ Pebble adds a small, always-accessible writing window from your system tray/menu
 - **Tray icon style** — choose between color and monochrome menu bar icons.
 - **Color mode** — choose a light or dark editor background.
 
+## Demo
+
+![Pebble preview](images/image.png)
+
 ## Installation
 
 ### From community plugins (once published)
