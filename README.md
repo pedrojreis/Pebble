@@ -17,7 +17,7 @@ Pebble adds a small, always-accessible writing window from your system tray/menu
 
 ## Demo
 
-![Pebble preview](images/image.png)
+<img src="images/image.png" alt="Pebble preview" width="433">
 
 ## Installation
 
