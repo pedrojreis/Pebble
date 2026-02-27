@@ -18,7 +18,7 @@ export class NativeWindow {
 	private readSettings: () => PebbleSettings;
 	private noteFile: TFile | null = null;
 	private pendingContent: string | null = null;
-	private closing = false;
+	private closePromise: Promise<void> | null = null;
 	private isSaving = false;
 	private suppressModifyUntil = 0;
 	private lastKnownContent = "";
@@ -33,6 +33,10 @@ export class NativeWindow {
 			return;
 		}
 
+		if (this.closePromise) {
+			await this.closePromise;
+		}
+
 		if (this.isOpen()) {
 			await this.close();
 			return;
@@ -41,36 +45,39 @@ export class NativeWindow {
 	}
 
 	async close(): Promise<void> {
-		if (this.closing) return;
-		this.closing = true;
-
+		if (this.closePromise) return this.closePromise;
+		this.closePromise = this.doClose();
 		try {
-			const file = this.noteFile;
-			const content = this.pendingContent;
-			if (file && content !== null && content !== this.lastKnownContent) {
-				this.suppressModifyUntil = Date.now() + 1500;
-				try {
-					await this.app.vault.process(file, () => content);
-				} catch {
-					// Best effort on close
-				}
-			}
-
-			this.noteFile = null;
-			this.pendingContent = null;
-			this.lastKnownContent = "";
-			this.suppressModifyUntil = 0;
-			this.isSaving = false;
-
-			if (!this.win || this.win.isDestroyed()) {
-				this.win = null;
-				return;
-			}
-			this.win.close();
-			this.win = null;
+			await this.closePromise;
 		} finally {
-			this.closing = false;
+			this.closePromise = null;
 		}
+	}
+
+	private async doClose(): Promise<void> {
+		const file = this.noteFile;
+		const content = this.pendingContent;
+		if (file && content !== null && content !== this.lastKnownContent) {
+			this.suppressModifyUntil = Date.now() + 1500;
+			try {
+				await this.app.vault.process(file, () => content);
+			} catch {
+				// Best effort on close
+			}
+		}
+
+		this.noteFile = null;
+		this.pendingContent = null;
+		this.lastKnownContent = "";
+		this.suppressModifyUntil = 0;
+		this.isSaving = false;
+
+		if (!this.win || this.win.isDestroyed()) {
+			this.win = null;
+			return;
+		}
+		this.win.close();
+		this.win = null;
 	}
 
 	isOpen(): boolean {
@@ -112,7 +119,7 @@ export class NativeWindow {
 	}
 
 	private async open(anchorBounds?: ElectronRectangle): Promise<void> {
-		if (this.opening || this.isOpen()) {
+		if (this.opening || this.isOpen() || this.closePromise) {
 			return;
 		}
 
@@ -250,7 +257,7 @@ export class NativeWindow {
 
 	private async readInitialContent(file: TFile): Promise<string> {
 		try {
-			return await this.app.vault.cachedRead(file);
+			return await this.app.vault.read(file);
 		} catch {
 			return "";
 		}
