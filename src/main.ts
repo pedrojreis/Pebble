@@ -14,7 +14,7 @@ export default class PebblePlugin extends Plugin {
 		this.overlayWindow = new NativeWindow(this.app, () => this.settings);
 
 		this.registerDomEvent(window, "beforeunload", () => {
-			this.overlayWindow?.close();
+			void this.overlayWindow?.close();
 			this.tray?.destroy();
 		});
 
@@ -46,7 +46,7 @@ export default class PebblePlugin extends Plugin {
 	}
 
 	onunload(): void {
-		this.overlayWindow?.close();
+		void this.overlayWindow?.close();
 		this.overlayWindow = null;
 
 		this.tray?.destroy();
