@@ -59,6 +59,8 @@ export interface ElectronBrowserWindowInstance {
 
 interface ElectronWebContents {
 	executeJavaScript(code: string): Promise<unknown>;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	on(event: string, callback: (...args: any[]) => void): void;
 }
 
 interface ElectronNativeImage {

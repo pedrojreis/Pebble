@@ -257,6 +257,10 @@ const editorScriptTemplate = String.raw`(function() {
 		},
 	};
 
+	editor.addEventListener('input', function() {
+		console.log('__pebble_save:' + JSON.stringify(editor.value));
+	});
+
 	if (!editor.value && initialContent) {
 		editor.value = initialContent;
 	}

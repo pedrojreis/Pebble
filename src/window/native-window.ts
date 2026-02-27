@@ -17,7 +17,8 @@ export class NativeWindow {
 	private app: App;
 	private readSettings: () => PebbleSettings;
 	private noteFile: TFile | null = null;
-	private syncInterval: number | null = null;
+	private pendingContent: string | null = null;
+	private closing = false;
 	private isSaving = false;
 	private suppressModifyUntil = 0;
 	private lastKnownContent = "";
@@ -33,25 +34,43 @@ export class NativeWindow {
 		}
 
 		if (this.isOpen()) {
-			this.close();
+			await this.close();
 			return;
 		}
 		await this.open(anchorBounds);
 	}
 
-	close(): void {
-		this.stopSyncLoop();
-		this.noteFile = null;
-		this.lastKnownContent = "";
-		this.suppressModifyUntil = 0;
-		this.isSaving = false;
+	async close(): Promise<void> {
+		if (this.closing) return;
+		this.closing = true;
 
-		if (!this.win || this.win.isDestroyed()) {
+		try {
+			const file = this.noteFile;
+			const content = this.pendingContent;
+			if (file && content !== null && content !== this.lastKnownContent) {
+				this.suppressModifyUntil = Date.now() + 1500;
+				try {
+					await this.app.vault.process(file, () => content);
+				} catch {
+					// Best effort on close
+				}
+			}
+
+			this.noteFile = null;
+			this.pendingContent = null;
+			this.lastKnownContent = "";
+			this.suppressModifyUntil = 0;
+			this.isSaving = false;
+
+			if (!this.win || this.win.isDestroyed()) {
+				this.win = null;
+				return;
+			}
+			this.win.close();
 			this.win = null;
-			return;
+		} finally {
+			this.closing = false;
 		}
-		this.win.close();
-		this.win = null;
 	}
 
 	isOpen(): boolean {
@@ -141,7 +160,7 @@ export class NativeWindow {
 					if (!this.win || this.win !== win || win.isDestroyed()) {
 						return;
 					}
-					this.close();
+					void this.close();
 				}, 80);
 			});
 
@@ -161,7 +180,7 @@ export class NativeWindow {
 			this.positionNearTray(win, remote, anchorBounds);
 			win.show();
 			win.focus();
-			this.startSyncLoop(noteFile);
+			this.listenForEditorChanges();
 		} catch (err) {
 			this.win = null;
 			const errorMessage =
@@ -237,34 +256,59 @@ export class NativeWindow {
 		}
 	}
 
-	private startSyncLoop(file: TFile): void {
-		this.stopSyncLoop();
-		this.syncInterval = window.setInterval(() => {
-			void this.syncEditorToVault(file);
-		}, 300);
+	private listenForEditorChanges(): void {
+		if (!this.win || this.win.isDestroyed()) return;
+
+		const SAVE_PREFIX = "__pebble_save:";
+
+		const webContents = this.win.webContents;
+		(
+			webContents as {
+				on(e: string, cb: (...args: unknown[]) => void): void;
+			}
+		).on(
+			"console-message",
+			(_event: unknown, _level: unknown, message: unknown) => {
+				if (
+					typeof message !== "string" ||
+					!message.startsWith(SAVE_PREFIX)
+				) {
+					return;
+				}
+				try {
+					const content: unknown = JSON.parse(
+						message.slice(SAVE_PREFIX.length),
+					);
+					if (typeof content === "string") {
+						this.onEditorInput(content);
+					}
+				} catch {
+					// Ignore malformed messages
+				}
+			},
+		);
 	}
 
-	private stopSyncLoop(): void {
-		if (this.syncInterval !== null) {
-			window.clearInterval(this.syncInterval);
-			this.syncInterval = null;
-		}
+	private onEditorInput(content: string): void {
+		this.pendingContent = content;
+		void this.flushPendingContent();
 	}
 
-	private async syncEditorToVault(file: TFile): Promise<void> {
-		if (!this.isOpen() || !this.noteFile || this.isSaving) {
-			return;
-		}
+	private async flushPendingContent(): Promise<void> {
+		if (this.isSaving || !this.noteFile) return;
 
-		const currentContent = await this.readEditorContent();
+		const content = this.pendingContent;
+		if (content === null || content === this.lastKnownContent) return;
+
+		await this.saveToVault(this.noteFile, content);
+
+		// Check if new content arrived while saving
 		if (
-			currentContent === null ||
-			currentContent === this.lastKnownContent
+			this.pendingContent !== null &&
+			this.pendingContent !== this.lastKnownContent
 		) {
-			return;
+			void this.flushPendingContent();
 		}
-
-		await this.saveToVault(file, currentContent);
 	}
 
 	private async saveToVault(file: TFile, content: string): Promise<void> {
@@ -298,22 +342,8 @@ export class NativeWindow {
 		}
 
 		this.lastKnownContent = content;
+		this.pendingContent = null;
 		await this.writeEditorContent(content);
-	}
-
-	private async readEditorContent(): Promise<string | null> {
-		if (!this.win || this.win.isDestroyed()) {
-			return null;
-		}
-
-		try {
-			const content = await this.win.webContents.executeJavaScript(
-				"window.__pebbleEditor?.getContent?.() ?? null",
-			);
-			return typeof content === "string" ? content : null;
-		} catch {
-			return null;
-		}
 	}
 
 	private async writeEditorContent(content: string): Promise<void> {
