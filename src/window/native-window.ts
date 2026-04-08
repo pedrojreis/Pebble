@@ -204,7 +204,7 @@ export class NativeWindow {
 		remote: NonNullable<ReturnType<typeof getRemote>>,
 		anchorBounds?: ElectronRectangle,
 	): void {
-		if (process.platform !== "darwin" || !anchorBounds || !remote.screen) {
+		if (!anchorBounds || !remote.screen) {
 			return;
 		}
 
@@ -219,7 +219,13 @@ export class NativeWindow {
 		const { workArea } = display;
 
 		const desiredX = Math.round(anchorCenterX - POPOUT_WIDTH / 2);
-		const desiredY = Math.round(anchorBottomY + WINDOW_MARGIN);
+
+		// macOS: tray is at the top → open below the icon
+		// Windows/Linux: tray is at the bottom → open above the icon
+		const desiredY =
+			process.platform === "darwin"
+				? Math.round(anchorBottomY + WINDOW_MARGIN)
+				: Math.round(anchorBounds.y - POPOUT_HEIGHT - WINDOW_MARGIN);
 
 		const minX = workArea.x + WINDOW_MARGIN;
 		const maxX = workArea.x + workArea.width - POPOUT_WIDTH - WINDOW_MARGIN;
