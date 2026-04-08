@@ -1,10 +1,10 @@
 {
 	"id": "pebble",
 	"name": "Pebble",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"minAppVersion": "0.15.0",
 	"description": "A Minimal companion for quick note taking.",
-	"author": "pedrojreis",
-	"authorUrl": "https://github.com/pedrojreis",
+	"author": "Pedro Reis",
+	"authorUrl": "pedrojreis/Pebble",
 	"isDesktopOnly": true
 }
