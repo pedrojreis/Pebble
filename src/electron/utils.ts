@@ -59,7 +59,7 @@ export interface ElectronBrowserWindowInstance {
 
 interface ElectronWebContents {
 	executeJavaScript(code: string): Promise<unknown>;
-	on(event: string, callback: (...args: any[]) => void): void;
+	on(event: string, callback: (...args: unknown[]) => void): void;
 }
 
 interface ElectronNativeImage {
