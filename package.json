@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-pebble",
-	"version": "1.0.4",
+	"version": "1.0.6",
 	"description": "A minimal companion for quick note-taking — lives in your menu bar.",
 	"main": "main.js",
 	"type": "module",
