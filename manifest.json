@@ -2,7 +2,7 @@
 	"id": "pebble",
 	"name": "Pebble",
 	"version": "1.0.7",
-	"minAppVersion": "0.15.0",
+	"minAppVersion": "1.12.0",
 	"description": "A Minimal companion for quick note taking.",
 	"author": "Pedro Reis",
 	"authorUrl": "https://github.com/pedrojreis",
