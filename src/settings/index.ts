@@ -62,9 +62,9 @@ export class PebbleSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Monochrome menu bar icon")
+			.setName("Monochrome tray icon")
 			.setDesc(
-				"Use a monochrome icon that blends with the macOS menu bar.",
+				"Use a monochrome tray icon that blends with the system tray or menu bar.",
 			)
 			.addToggle((toggle) => {
 				toggle
