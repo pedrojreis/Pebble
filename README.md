@@ -8,7 +8,7 @@ Pebble adds a small, always-accessible writing window from your system tray/menu
 
 - **Minimal** — small and distraction-free writing window.
 - **Menu-bar toggle** — click the Pebble icon to open/close the note window.
-- **Anchored window (macOS)** — opens near the menu bar icon for quick access.
+- **Anchored window** — opens near the tray/menu bar icon for quick access.
 - **Auto-close on blur** — closes when you click outside the pop-out window.
 - **Single-file focus** — choose one markdown note from your vault; Pebble reads and writes only that file.
 - **Fast autosave** — edits are written back to disk automatically.
@@ -21,7 +21,11 @@ Pebble adds a small, always-accessible writing window from your system tray/menu
 
 ## Installation
 
-### From community plugins (once published)
+### From the Obsidian website
+
+Install Pebble directly from its [community plugin page](https://community.obsidian.md/plugins/pebble).
+
+### From community plugins
 
 1. Open **Settings → Community plugins → Browse**.
 2. Search for **Pebble**.
@@ -42,14 +46,9 @@ Pebble adds a small, always-accessible writing window from your system tray/menu
 
 ## Settings
 
-| Setting                      | Description                                      | Default |
-| ---------------------------- | ------------------------------------------------ | ------- |
-| **Note**                     | The vault note that Pebble reads and writes to.  | None    |
-| **Monochrome menu bar icon** | Use a template icon in the macOS menu bar.       | Off     |
-| **Show note title**          | Show the note title as a subtle background hint. | On      |
-| **Color mode**               | Choose a white or dark editor background.        | Dark    |
-
-## Requirements
-
-- Obsidian **v0.15.0** or later.
-- Desktop only (macOS, Windows, Linux). Mobile is not supported.
+| Setting                  | Description                                      | Default |
+| ------------------------ | ------------------------------------------------ | ------- |
+| **Note**                 | The vault note that Pebble reads and writes to.  | None    |
+| **Monochrome tray icon** | Use a monochrome tray icon that blends in.       | Off     |
+| **Show note title**      | Show the note title as a subtle background hint. | On      |
+| **Color mode**           | Choose a white or dark editor background.        | Dark    |
