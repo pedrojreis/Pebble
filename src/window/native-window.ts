@@ -7,8 +7,6 @@ import {
 import { buildEditorHTML } from "./editor-html";
 import { PebbleSettings } from "../settings";
 
-const POPOUT_WIDTH = 420;
-const POPOUT_HEIGHT = 320;
 const TRAY_GAP = 8;
 const SCREEN_MARGIN = 8;
 

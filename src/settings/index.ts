@@ -142,7 +142,7 @@ export class PebbleSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Tray offset Y")
+			.setName("Vertical tray offset")
 			.setDesc(
 				"Vertical offset in pixels applied when the window first opens near the tray icon. Positive moves down, negative moves up.",
 			)
