@@ -1,4 +1,7 @@
 import { getRemote, ElectronRectangle, ElectronTray } from "../electron/utils";
+
+// Obsidian runtime global — tracks the focused window's document
+declare const activeDocument: Document;
 import {
 	OBSIDIAN_ICON_PATH,
 	TRAY_ICON_COLOR_DATA_URL,
@@ -41,7 +44,7 @@ export class PebbleTray {
 			: [TRAY_ICON_COLOR_DATA_URL, TRAY_ICON_MONOCHROME_DATA_URL];
 
 		try {
-			const canvas = document.createElement("canvas");
+			const canvas = activeDocument.createElement("canvas");
 			canvas.width = size;
 			canvas.height = size;
 			const context = canvas.getContext("2d");
