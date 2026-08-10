@@ -7,15 +7,15 @@ import {
 import { buildEditorHTML } from "./editor-html";
 import { PebbleSettings } from "../settings";
 
-const POPOUT_WIDTH = 420;
-const POPOUT_HEIGHT = 320;
-const WINDOW_MARGIN = 8;
+const TRAY_GAP = 8;
+const SCREEN_MARGIN = 8;
 
 export class NativeWindow {
 	private win: ElectronBrowserWindowInstance | null = null;
 	private opening = false;
 	private app: App;
 	private readSettings: () => PebbleSettings;
+	private saveSettings: () => Promise<void>;
 	private noteFile: TFile | null = null;
 	private pendingContent: string | null = null;
 	private closePromise: Promise<void> | null = null;
@@ -23,9 +23,14 @@ export class NativeWindow {
 	private suppressModifyUntil = 0;
 	private lastKnownContent = "";
 
-	constructor(app: App, readSettings: () => PebbleSettings) {
+	constructor(
+		app: App,
+		readSettings: () => PebbleSettings,
+		saveSettings: () => Promise<void>,
+	) {
 		this.app = app;
 		this.readSettings = readSettings;
+		this.saveSettings = saveSettings;
 	}
 
 	async toggle(anchorBounds?: ElectronRectangle): Promise<void> {
@@ -76,8 +81,25 @@ export class NativeWindow {
 			this.win = null;
 			return;
 		}
+
+		this.persistWindowBounds(this.win);
 		this.win.close();
 		this.win = null;
+	}
+
+	private persistWindowBounds(win: ElectronBrowserWindowInstance): void {
+		try {
+			const [x, y] = win.getPosition();
+			const [width, height] = win.getSize();
+			const settings = this.readSettings();
+			settings.windowX = x;
+			settings.windowY = y;
+			settings.windowWidth = width;
+			settings.windowHeight = height;
+			void this.saveSettings();
+		} catch {
+			// Non-critical — ignore if window is already destroyed
+		}
 	}
 
 	isOpen(): boolean {
@@ -147,8 +169,8 @@ export class NativeWindow {
 
 		try {
 			const win = new remote.BrowserWindow({
-				width: POPOUT_WIDTH,
-				height: POPOUT_HEIGHT,
+				width: settings.windowWidth,
+				height: settings.windowHeight,
 				title: `${basename} — Pebble`,
 				frame: process.platform === "darwin" ? false : undefined,
 				show: false,
@@ -184,7 +206,11 @@ export class NativeWindow {
 			)}`;
 			await win.loadURL(editorDataUrl);
 
-			this.positionNearTray(win, remote, anchorBounds);
+			if (settings.windowX !== null && settings.windowY !== null) {
+				win.setPosition(settings.windowX, settings.windowY, false);
+			} else {
+				this.positionNearTray(win, remote, anchorBounds, settings);
+			}
 			win.show();
 			win.focus();
 			this.listenForEditorChanges();
@@ -202,41 +228,81 @@ export class NativeWindow {
 	private positionNearTray(
 		win: ElectronBrowserWindowInstance,
 		remote: NonNullable<ReturnType<typeof getRemote>>,
-		anchorBounds?: ElectronRectangle,
+		anchorBounds: ElectronRectangle | undefined,
+		settings: PebbleSettings,
 	): void {
-		if (!anchorBounds || !remote.screen) {
+		if (!remote.screen) return;
+
+		const [winWidth, winHeight] = win.getSize();
+
+		// Fallback chain: click bounds → getBounds() → center on primary display
+		if (!anchorBounds) {
+			const primary = remote.screen.getPrimaryDisplay();
+			const { workArea } = primary;
+			win.setPosition(
+				Math.round(workArea.x + (workArea.width - winWidth) / 2),
+				Math.round(workArea.y + (workArea.height - winHeight) / 2),
+				false,
+			);
 			return;
 		}
 
 		const anchorCenterX =
 			anchorBounds.x + Math.round(anchorBounds.width / 2);
-		const anchorBottomY = anchorBounds.y + anchorBounds.height;
+		const anchorCenterY =
+			anchorBounds.y + Math.round(anchorBounds.height / 2);
 		const display =
 			remote.screen.getDisplayNearestPoint({
 				x: anchorCenterX,
-				y: anchorBottomY,
+				y: anchorCenterY,
 			}) ?? remote.screen.getPrimaryDisplay();
 		const { workArea } = display;
 
-		const desiredX = Math.round(anchorCenterX - POPOUT_WIDTH / 2);
+		// Detect which edge the tray is on by proximity to work-area boundaries
+		const distTop = anchorCenterY - workArea.y;
+		const distBottom = workArea.y + workArea.height - anchorCenterY;
+		const distLeft = anchorCenterX - workArea.x;
+		const distRight = workArea.x + workArea.width - anchorCenterX;
+		const minDist = Math.min(distTop, distBottom, distLeft, distRight);
 
-		// macOS: tray is at the top → open below the icon
-		// Windows/Linux: tray is at the bottom → open above the icon
-		const desiredY =
-			process.platform === "darwin"
-				? Math.round(anchorBottomY + WINDOW_MARGIN)
-				: Math.round(anchorBounds.y - POPOUT_HEIGHT - WINDOW_MARGIN);
+		let desiredX: number;
+		let desiredY: number;
 
-		const minX = workArea.x + WINDOW_MARGIN;
-		const maxX = workArea.x + workArea.width - POPOUT_WIDTH - WINDOW_MARGIN;
-		const minY = workArea.y + WINDOW_MARGIN;
-		const maxY =
-			workArea.y + workArea.height - POPOUT_HEIGHT - WINDOW_MARGIN;
+		if (minDist === distBottom) {
+			// Tray on bottom → open above
+			desiredX = Math.round(anchorCenterX - winWidth / 2);
+			desiredY = Math.round(anchorBounds.y - winHeight - TRAY_GAP);
+		} else if (minDist === distTop) {
+			// Tray on top → open below
+			desiredX = Math.round(anchorCenterX - winWidth / 2);
+			desiredY = Math.round(
+				anchorBounds.y + anchorBounds.height + TRAY_GAP,
+			);
+		} else if (minDist === distRight) {
+			// Tray on right → open to the left
+			desiredX = Math.round(anchorBounds.x - winWidth - TRAY_GAP);
+			desiredY = Math.round(anchorCenterY - winHeight / 2);
+		} else {
+			// Tray on left → open to the right
+			desiredX = Math.round(
+				anchorBounds.x + anchorBounds.width + TRAY_GAP,
+			);
+			desiredY = Math.round(anchorCenterY - winHeight / 2);
+		}
 
-		const finalX = Math.min(Math.max(desiredX, minX), Math.max(minX, maxX));
-		const finalY = Math.min(Math.max(desiredY, minY), Math.max(minY, maxY));
+		desiredX += settings.trayOffsetX;
+		desiredY += settings.trayOffsetY;
 
-		win.setPosition(finalX, finalY, false);
+		const minX = workArea.x + SCREEN_MARGIN;
+		const maxX = workArea.x + workArea.width - winWidth - SCREEN_MARGIN;
+		const minY = workArea.y + SCREEN_MARGIN;
+		const maxY = workArea.y + workArea.height - winHeight - SCREEN_MARGIN;
+
+		win.setPosition(
+			Math.min(Math.max(desiredX, minX), Math.max(minX, maxX)),
+			Math.min(Math.max(desiredY, minY), Math.max(minY, maxY)),
+			false,
+		);
 	}
 
 	private resolveNoteFile(): TFile | null {

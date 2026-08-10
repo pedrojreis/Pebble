@@ -13,6 +13,14 @@ export interface PebbleSettings {
 	monochromeTrayIcon: boolean;
 	showNoteTitle: boolean;
 	themeMode: PebbleThemeMode;
+	/** Saved window bounds — restored on next open */
+	windowX: number | null;
+	windowY: number | null;
+	windowWidth: number;
+	windowHeight: number;
+	/** Extra offset applied on first open (before any saved position) */
+	trayOffsetX: number;
+	trayOffsetY: number;
 }
 
 export const DEFAULT_SETTINGS: PebbleSettings = {
@@ -20,6 +28,12 @@ export const DEFAULT_SETTINGS: PebbleSettings = {
 	monochromeTrayIcon: false,
 	showNoteTitle: true,
 	themeMode: "dark",
+	windowX: null,
+	windowY: null,
+	windowWidth: 420,
+	windowHeight: 320,
+	trayOffsetX: 0,
+	trayOffsetY: 0,
 };
 
 type SettingsTabPluginHost = Plugin & {
@@ -108,6 +122,53 @@ export class PebbleSettingTab extends PluginSettingTab {
 						this.plugin.settings.themeMode = value;
 						await this.plugin.saveSettings();
 					});
+			});
+
+		new Setting(containerEl)
+			.setName("Tray offset X")
+			.setDesc(
+				"Horizontal offset in pixels applied when the window first opens near the tray icon. Positive moves right, negative moves left.",
+			)
+			.addText((text) => {
+				text.setPlaceholder("0")
+					.setValue(String(this.plugin.settings.trayOffsetX))
+					.onChange(async (value) => {
+						const parsed = parseInt(value, 10);
+						if (!isNaN(parsed)) {
+							this.plugin.settings.trayOffsetX = parsed;
+							await this.plugin.saveSettings();
+						}
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Vertical tray offset")
+			.setDesc(
+				"Vertical offset in pixels applied when the window first opens near the tray icon. Positive moves down, negative moves up.",
+			)
+			.addText((text) => {
+				text.setPlaceholder("0")
+					.setValue(String(this.plugin.settings.trayOffsetY))
+					.onChange(async (value) => {
+						const parsed = parseInt(value, 10);
+						if (!isNaN(parsed)) {
+							this.plugin.settings.trayOffsetY = parsed;
+							await this.plugin.saveSettings();
+						}
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Reset window position")
+			.setDesc(
+				"Clear the saved window position so it recalculates near the tray icon on next open.",
+			)
+			.addButton((button) => {
+				button.setButtonText("Reset").onClick(async () => {
+					this.plugin.settings.windowX = null;
+					this.plugin.settings.windowY = null;
+					await this.plugin.saveSettings();
+				});
 			});
 	}
 }
