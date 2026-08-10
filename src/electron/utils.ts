@@ -53,6 +53,8 @@ export interface ElectronBrowserWindowInstance {
 	show(): void;
 	focus(): void;
 	setPosition(x: number, y: number, animate?: boolean): void;
+	getPosition(): [number, number];
+	getSize(): [number, number];
 	on(event: string, callback: () => void): void;
 	webContents: ElectronWebContents;
 }

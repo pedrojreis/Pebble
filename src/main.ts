@@ -11,7 +11,11 @@ export default class PebblePlugin extends Plugin {
 	async onload(): Promise<void> {
 		await this.loadSettings();
 
-		this.overlayWindow = new NativeWindow(this.app, () => this.settings);
+		this.overlayWindow = new NativeWindow(
+			this.app,
+			() => this.settings,
+			() => this.saveSettings(),
+		);
 
 		this.registerDomEvent(window, "beforeunload", () => {
 			void this.overlayWindow?.close();
