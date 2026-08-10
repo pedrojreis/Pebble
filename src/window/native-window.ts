@@ -5,10 +5,8 @@ import {
 	getRemote,
 } from "../electron/utils";
 import { buildEditorHTML } from "./editor-html";
+import { calculateWindowPosition } from "./position";
 import { PebbleSettings } from "../settings";
-
-const TRAY_GAP = 8;
-const SCREEN_MARGIN = 8;
 
 export class NativeWindow {
 	private win: ElectronBrowserWindowInstance | null = null;
@@ -234,75 +232,28 @@ export class NativeWindow {
 		if (!remote.screen) return;
 
 		const [winWidth, winHeight] = win.getSize();
+		const screen = remote.screen;
 
-		// Fallback chain: click bounds → getBounds() → center on primary display
-		if (!anchorBounds) {
-			const primary = remote.screen.getPrimaryDisplay();
-			const { workArea } = primary;
-			win.setPosition(
-				Math.round(workArea.x + (workArea.width - winWidth) / 2),
-				Math.round(workArea.y + (workArea.height - winHeight) / 2),
-				false,
-			);
-			return;
-		}
+		const workArea = anchorBounds
+			? (() => {
+					const cx =
+						anchorBounds.x + Math.round(anchorBounds.width / 2);
+					const cy =
+						anchorBounds.y + Math.round(anchorBounds.height / 2);
+					return (
+						screen.getDisplayNearestPoint({ x: cx, y: cy }) ??
+						screen.getPrimaryDisplay()
+					).workArea;
+				})()
+			: screen.getPrimaryDisplay().workArea;
 
-		const anchorCenterX =
-			anchorBounds.x + Math.round(anchorBounds.width / 2);
-		const anchorCenterY =
-			anchorBounds.y + Math.round(anchorBounds.height / 2);
-		const display =
-			remote.screen.getDisplayNearestPoint({
-				x: anchorCenterX,
-				y: anchorCenterY,
-			}) ?? remote.screen.getPrimaryDisplay();
-		const { workArea } = display;
-
-		// Detect which edge the tray is on by proximity to work-area boundaries
-		const distTop = anchorCenterY - workArea.y;
-		const distBottom = workArea.y + workArea.height - anchorCenterY;
-		const distLeft = anchorCenterX - workArea.x;
-		const distRight = workArea.x + workArea.width - anchorCenterX;
-		const minDist = Math.min(distTop, distBottom, distLeft, distRight);
-
-		let desiredX: number;
-		let desiredY: number;
-
-		if (minDist === distBottom) {
-			// Tray on bottom → open above
-			desiredX = Math.round(anchorCenterX - winWidth / 2);
-			desiredY = Math.round(anchorBounds.y - winHeight - TRAY_GAP);
-		} else if (minDist === distTop) {
-			// Tray on top → open below
-			desiredX = Math.round(anchorCenterX - winWidth / 2);
-			desiredY = Math.round(
-				anchorBounds.y + anchorBounds.height + TRAY_GAP,
-			);
-		} else if (minDist === distRight) {
-			// Tray on right → open to the left
-			desiredX = Math.round(anchorBounds.x - winWidth - TRAY_GAP);
-			desiredY = Math.round(anchorCenterY - winHeight / 2);
-		} else {
-			// Tray on left → open to the right
-			desiredX = Math.round(
-				anchorBounds.x + anchorBounds.width + TRAY_GAP,
-			);
-			desiredY = Math.round(anchorCenterY - winHeight / 2);
-		}
-
-		desiredX += settings.trayOffsetX;
-		desiredY += settings.trayOffsetY;
-
-		const minX = workArea.x + SCREEN_MARGIN;
-		const maxX = workArea.x + workArea.width - winWidth - SCREEN_MARGIN;
-		const minY = workArea.y + SCREEN_MARGIN;
-		const maxY = workArea.y + workArea.height - winHeight - SCREEN_MARGIN;
-
-		win.setPosition(
-			Math.min(Math.max(desiredX, minX), Math.max(minX, maxX)),
-			Math.min(Math.max(desiredY, minY), Math.max(minY, maxY)),
-			false,
-		);
+		const { x, y } = calculateWindowPosition({
+			anchor: anchorBounds,
+			workArea,
+			winSize: { width: winWidth, height: winHeight },
+			offsets: { x: settings.trayOffsetX, y: settings.trayOffsetY },
+		});
+		win.setPosition(x, y, false);
 	}
 
 	private resolveNoteFile(): TFile | null {
