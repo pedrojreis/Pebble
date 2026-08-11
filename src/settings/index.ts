@@ -3,6 +3,8 @@ import {
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	SettingDefinitionItem,
+	TFile,
 	normalizePath,
 } from "obsidian";
 
@@ -48,6 +50,74 @@ export class PebbleSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: SettingsTabPluginHost) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				name: "Note",
+				desc: "Choose the note that pebble opens and saves as you type.",
+				control: {
+					type: "file",
+					key: "notePath",
+					filter: (f: TFile) => f.extension === "md",
+				},
+			},
+			{
+				name: "Monochrome tray icon",
+				desc: "Use a monochrome tray icon that blends with the system tray or menu bar.",
+				control: { type: "toggle", key: "monochromeTrayIcon" },
+			},
+			{
+				name: "Show note title",
+				desc: "Show the current note title as a subtle watermark in the editor.",
+				control: { type: "toggle", key: "showNoteTitle" },
+			},
+			{
+				name: "Color mode",
+				desc: "Choose whether the pebble editor uses a white or dark background.",
+				control: {
+					type: "dropdown",
+					key: "themeMode",
+					options: { light: "White mode", dark: "Dark mode" },
+				},
+			},
+			{
+				name: "Tray offset X",
+				desc: "Horizontal offset in pixels applied when the window first opens near the tray icon. Positive moves right, negative moves left.",
+				control: {
+					type: "number",
+					key: "trayOffsetX",
+					placeholder: "0",
+				},
+			},
+			{
+				name: "Vertical tray offset",
+				desc: "Vertical offset in pixels applied when the window first opens near the tray icon. Positive moves down, negative moves up.",
+				control: {
+					type: "number",
+					key: "trayOffsetY",
+					placeholder: "0",
+				},
+			},
+		];
+	}
+
+	getControlValue(key: string): unknown {
+		return this.plugin.settings[key as keyof PebbleSettings];
+	}
+
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		if (key === "notePath" && typeof value === "string") {
+			this.plugin.settings.notePath = normalizePath(value);
+		} else {
+			(this.plugin.settings as unknown as Record<string, unknown>)[key] =
+				value;
+		}
+		await this.plugin.saveSettings();
+		if (key === "monochromeTrayIcon") {
+			this.plugin.refreshTrayIcon();
+		}
 	}
 
 	display(): void {

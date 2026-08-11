@@ -170,7 +170,10 @@ export class NativeWindow {
 				width: settings.windowWidth,
 				height: settings.windowHeight,
 				title: `${basename} — Pebble`,
-				frame: process.platform === "darwin" ? false : undefined,
+				frame:
+					(process as { platform: string }).platform === "darwin"
+						? false
+						: undefined,
 				show: false,
 				webPreferences: {
 					nodeIntegration: false,
