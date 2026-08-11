@@ -174,6 +174,7 @@ export class NativeWindow {
 					(process as { platform: string }).platform === "darwin"
 						? false
 						: undefined,
+				skipTaskbar: true,
 				show: false,
 				webPreferences: {
 					nodeIntegration: false,

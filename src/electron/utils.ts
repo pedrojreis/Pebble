@@ -38,6 +38,7 @@ interface ElectronBrowserWindowOptions {
 	title?: string;
 	show?: boolean;
 	frame?: boolean;
+	skipTaskbar?: boolean;
 	webPreferences?: {
 		nodeIntegration?: boolean;
 		contextIsolation?: boolean;
