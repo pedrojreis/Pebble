@@ -44,7 +44,7 @@ export class PebbleTray {
 			: [TRAY_ICON_COLOR_DATA_URL, TRAY_ICON_MONOCHROME_DATA_URL];
 
 		try {
-			const canvas = activeDocument.createEl("canvas");
+			const canvas = activeDocument.createElement("canvas");
 			canvas.width = size;
 			canvas.height = size;
 			const context = canvas.getContext("2d");

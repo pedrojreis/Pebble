@@ -116,6 +116,7 @@ export class PebbleSettingTab extends PluginSettingTab {
 	}
 
 	async setControlValue(key: string, value: unknown): Promise<void> {
+		const prev = this.plugin.settings[key as keyof PebbleSettings];
 		if (key === "notePath" && typeof value === "string") {
 			this.plugin.settings.notePath = normalizePath(value);
 		} else {
@@ -123,7 +124,8 @@ export class PebbleSettingTab extends PluginSettingTab {
 				value;
 		}
 		await this.plugin.saveSettings();
-		if (key === "monochromeTrayIcon") {
+		// Only refresh when the value actually changes to avoid spurious tray resets on init
+		if (key === "monochromeTrayIcon" && value !== prev) {
 			this.plugin.refreshTrayIcon();
 		}
 	}
