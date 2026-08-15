@@ -125,7 +125,7 @@ export class PebbleSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Tray offset X")
+			.setName("Horizontal tray offset")
 			.setDesc(
 				"Horizontal offset in pixels applied when the window first opens near the tray icon. Positive moves right, negative moves left.",
 			)
@@ -139,6 +139,10 @@ export class PebbleSettingTab extends PluginSettingTab {
 						)
 							? parsed
 							: 0;
+						// Otherwise the saved position masks the new offset
+						delete this.plugin.settings.windowPositions[
+							process.platform
+						];
 						await this.plugin.saveSettings();
 					});
 			});
@@ -158,6 +162,10 @@ export class PebbleSettingTab extends PluginSettingTab {
 						)
 							? parsed
 							: 0;
+						// Otherwise the saved position masks the new offset
+						delete this.plugin.settings.windowPositions[
+							process.platform
+						];
 						await this.plugin.saveSettings();
 					});
 			});
