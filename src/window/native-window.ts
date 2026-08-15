@@ -8,6 +8,10 @@ import { buildEditorHTML } from "./editor-html";
 import { calculateWindowPosition } from "./position";
 import { PebbleSettings } from "../settings";
 
+function currentPlatform(): NodeJS.Platform {
+	return process.platform;
+}
+
 export class NativeWindow {
 	private win: ElectronBrowserWindowInstance | null = null;
 	private opening = false;
@@ -90,8 +94,7 @@ export class NativeWindow {
 			const [x, y] = win.getPosition();
 			const [width, height] = win.getSize();
 			const settings = this.readSettings();
-			settings.windowX = x;
-			settings.windowY = y;
+			settings.windowPositions[currentPlatform()] = { x, y };
 			settings.windowWidth = width;
 			settings.windowHeight = height;
 			void this.saveSettings();
@@ -170,10 +173,7 @@ export class NativeWindow {
 				width: settings.windowWidth,
 				height: settings.windowHeight,
 				title: `${basename} — Pebble`,
-				frame:
-					(process as { platform: string }).platform === "darwin"
-						? false
-						: undefined,
+				frame: currentPlatform() === "darwin" ? false : undefined,
 				skipTaskbar: true,
 				show: false,
 				webPreferences: {
@@ -208,8 +208,9 @@ export class NativeWindow {
 			)}`;
 			await win.loadURL(editorDataUrl);
 
-			if (settings.windowX !== null && settings.windowY !== null) {
-				win.setPosition(settings.windowX, settings.windowY, false);
+			if (settings.windowPositions[currentPlatform()]) {
+				const { x, y } = settings.windowPositions[currentPlatform()]!;
+				win.setPosition(x, y, false);
 			} else {
 				this.positionNearTray(win, remote, anchorBounds, settings);
 			}
