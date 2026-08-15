@@ -20,6 +20,13 @@ export default tseslint.config(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		rules: {
+			// TypeScript already checks this; no-undef doesn't understand
+			// TS-only globals like the NodeJS namespace.
+			"no-undef": "off",
+		},
+	},
 	globalIgnores([
 		"node_modules",
 		"dist",
