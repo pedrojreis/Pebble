@@ -1,9 +1,8 @@
 name: Release Obsidian plugin
 
 on:
-    push:
-        tags:
-            - "*"
+    release:
+        types: [published]
 
 permissions: {}
 
@@ -22,9 +21,19 @@ jobs:
               with:
                   node-version: "24.x"
 
+            - name: Verify tag matches manifest version
+              run: |
+                  tag="${{ github.event.release.tag_name }}"
+                  version=$(node -p "require('./manifest.json').version")
+
+                  if [ "$tag" != "$version" ]; then
+                    echo "::error::Release tag '$tag' does not match manifest.json version '$version'"
+                    exit 1
+                  fi
+
             - name: Build plugin
               run: |
-                  npm install
+                  npm ci
                   npm run build
 
             - name: Attest build provenance
@@ -34,14 +43,10 @@ jobs:
                       main.js
                       styles.css
 
-            - name: Create release
+            - name: Upload release assets
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  tag="${GITHUB_REF#refs/tags/}"
-
-                  gh release create "$tag" \
-                    --title="$tag" \
-                    --draft \
-                    --generate-notes \
-                    main.js manifest.json styles.css
+                  gh release upload "${{ github.event.release.tag_name }}" \
+                    main.js manifest.json styles.css \
+                    --clobber
