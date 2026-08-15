@@ -2,21 +2,26 @@ import {
 	App,
 	Plugin,
 	PluginSettingTab,
-	SettingDefinitionItem,
-	TFile,
+	Setting,
 	normalizePath,
 } from "obsidian";
 
 export type PebbleThemeMode = "light" | "dark";
+
+export interface WindowPosition {
+	x: number;
+	y: number;
+}
 
 export interface PebbleSettings {
 	notePath: string;
 	monochromeTrayIcon: boolean;
 	showNoteTitle: boolean;
 	themeMode: PebbleThemeMode;
-	/** Saved window bounds — restored on next open */
-	windowX: number | null;
-	windowY: number | null;
+	/** Saved window position per OS platform — a position saved on one device
+	 * (e.g. Windows) shouldn't be reused on another (e.g. macOS) when settings
+	 * are synced across devices. */
+	windowPositions: Partial<Record<NodeJS.Platform, WindowPosition>>;
 	windowWidth: number;
 	windowHeight: number;
 	/** Extra offset applied on first open (before any saved position) */
@@ -29,8 +34,7 @@ export const DEFAULT_SETTINGS: PebbleSettings = {
 	monochromeTrayIcon: false,
 	showNoteTitle: true,
 	themeMode: "dark",
-	windowX: null,
-	windowY: null,
+	windowPositions: {},
 	windowWidth: 420,
 	windowHeight: 320,
 	trayOffsetX: 0,
@@ -51,82 +55,125 @@ export class PebbleSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	getSettingDefinitions(): SettingDefinitionItem[] {
-		return [
-			{
-				name: "Note",
-				desc: "Choose the note that pebble opens and saves as you type.",
-				control: {
-					type: "file",
-					key: "notePath",
-					filter: (f: TFile) => f.extension === "md",
-				},
-			},
-			{
-				name: "Monochrome tray icon",
-				desc: "Use a monochrome tray icon that blends with the system tray or menu bar.",
-				control: { type: "toggle", key: "monochromeTrayIcon" },
-			},
-			{
-				name: "Show note title",
-				desc: "Show the current note title as a subtle watermark in the editor.",
-				control: { type: "toggle", key: "showNoteTitle" },
-			},
-			{
-				name: "Color mode",
-				desc: "Choose whether the pebble editor uses a white or dark background.",
-				control: {
-					type: "dropdown",
-					key: "themeMode",
-					options: { light: "White mode", dark: "Dark mode" },
-				},
-			},
-			{
-				name: "Tray offset X",
-				desc: "Horizontal offset in pixels applied when the window first opens near the tray icon. Positive moves right, negative moves left.",
-				control: {
-					type: "number",
-					key: "trayOffsetX",
-					placeholder: "0",
-				},
-			},
-			{
-				name: "Vertical tray offset",
-				desc: "Vertical offset in pixels applied when the window first opens near the tray icon. Positive moves down, negative moves up.",
-				control: {
-					type: "number",
-					key: "trayOffsetY",
-					placeholder: "0",
-				},
-			},
-			{
-				name: "Reset window position",
-				desc: "Clear the saved window position so it recalculates near the tray icon on next open.",
-				action: (_el: HTMLElement, _index: number) => {
-					this.plugin.settings.windowX = null;
-					this.plugin.settings.windowY = null;
-					void this.plugin.saveSettings();
-				},
-			},
-		];
-	}
+	display(): void {
+		const { containerEl } = this;
+		containerEl.empty();
 
-	getControlValue(key: string): unknown {
-		return this.plugin.settings[key as keyof PebbleSettings];
-	}
+		new Setting(containerEl)
+			.setName("Note")
+			.setDesc("Choose the note that pebble opens and saves as you type.")
+			.addDropdown((dropdown) => {
+				dropdown.addOption("", "Select a note");
+				const notes = this.plugin.app.vault
+					.getMarkdownFiles()
+					.sort((a, b) => a.path.localeCompare(b.path));
+				for (const note of notes) {
+					dropdown.addOption(note.path, note.path);
+				}
+				dropdown
+					.setValue(this.plugin.settings.notePath)
+					.onChange(async (value) => {
+						this.plugin.settings.notePath = normalizePath(value);
+						await this.plugin.saveSettings();
+					});
+			});
 
-	async setControlValue(key: string, value: unknown): Promise<void> {
-		const prev = this.plugin.settings[key as keyof PebbleSettings];
-		if (key === "notePath" && typeof value === "string") {
-			this.plugin.settings.notePath = normalizePath(value);
-		} else {
-			(this.plugin.settings as unknown as Record<string, unknown>)[key] =
-				value;
-		}
-		await this.plugin.saveSettings();
-		// Only refresh when the value actually changes to avoid spurious tray resets on init
-		if (key === "monochromeTrayIcon" && value !== prev) {
-			this.plugin.refreshTrayIcon();
-		}
+		new Setting(containerEl)
+			.setName("Monochrome tray icon")
+			.setDesc(
+				"Use a monochrome tray icon that blends with the system tray or menu bar.",
+			)
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.monochromeTrayIcon)
+					.onChange(async (value) => {
+						this.plugin.settings.monochromeTrayIcon = value;
+						await this.plugin.saveSettings();
+						this.plugin.refreshTrayIcon();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Show note title")
+			.setDesc(
+				"Show the current note title as a subtle watermark in the editor.",
+			)
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.showNoteTitle)
+					.onChange(async (value) => {
+						this.plugin.settings.showNoteTitle = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Color mode")
+			.setDesc(
+				"Choose whether the pebble editor uses a white or dark background.",
+			)
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("light", "White mode")
+					.addOption("dark", "Dark mode")
+					.setValue(this.plugin.settings.themeMode)
+					.onChange(async (value) => {
+						if (value !== "light" && value !== "dark") return;
+						this.plugin.settings.themeMode = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Tray offset X")
+			.setDesc(
+				"Horizontal offset in pixels applied when the window first opens near the tray icon. Positive moves right, negative moves left.",
+			)
+			.addText((text) => {
+				text.setPlaceholder("0")
+					.setValue(String(this.plugin.settings.trayOffsetX))
+					.onChange(async (value) => {
+						const parsed = Number(value);
+						this.plugin.settings.trayOffsetX = Number.isFinite(
+							parsed,
+						)
+							? parsed
+							: 0;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Vertical tray offset")
+			.setDesc(
+				"Vertical offset in pixels applied when the window first opens near the tray icon. Positive moves down, negative moves up.",
+			)
+			.addText((text) => {
+				text.setPlaceholder("0")
+					.setValue(String(this.plugin.settings.trayOffsetY))
+					.onChange(async (value) => {
+						const parsed = Number(value);
+						this.plugin.settings.trayOffsetY = Number.isFinite(
+							parsed,
+						)
+							? parsed
+							: 0;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Reset window position")
+			.setDesc(
+				"Clear the saved window position for this device so it recalculates near the tray icon on next open.",
+			)
+			.addButton((button) => {
+				button.setButtonText("Reset").onClick(async () => {
+					delete this.plugin.settings.windowPositions[
+						process.platform
+					];
+					await this.plugin.saveSettings();
+				});
+			});
 	}
 }
