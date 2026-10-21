@@ -6,6 +6,43 @@ const WIN_SIZE = { width: 420, height: 320 };
 const NO_OFFSET = { x: 0, y: 0 };
 
 describe("calculateWindowPosition", () => {
+	it("keeps a saved position that fits on the clicked display", () => {
+		const result = calculateWindowPosition({
+			anchor: { x: 900, y: 0, width: 40, height: 32 },
+			workArea: WORK_AREA,
+			winSize: WIN_SIZE,
+			offsets: NO_OFFSET,
+			savedPosition: { x: 100, y: 50 },
+		});
+		expect(result).toEqual({ x: 100, y: 50 });
+	});
+
+	it.each([
+		{ display: "right", x: 1920, y: 0, expected: { x: 2630, y: 40 } },
+		{ display: "left", x: -1920, y: 0, expected: { x: -1210, y: 40 } },
+		{ display: "above", x: 0, y: -1080, expected: { x: 710, y: -1040 } },
+	])("ignores the saved position when clicking the $display display", ({ x, y, expected }) => {
+		const result = calculateWindowPosition({
+			anchor: { x: x + 900, y, width: 40, height: 32 },
+			workArea: { ...WORK_AREA, x, y },
+			winSize: WIN_SIZE,
+			offsets: NO_OFFSET,
+			savedPosition: { x: 100, y: 50 },
+		});
+		expect(result).toEqual(expected);
+	});
+
+	it("repositions a saved window that extends beyond the clicked display", () => {
+		const result = calculateWindowPosition({
+			anchor: { x: 900, y: 0, width: 40, height: 32 },
+			workArea: WORK_AREA,
+			winSize: WIN_SIZE,
+			offsets: NO_OFFSET,
+			savedPosition: { x: 1800, y: 50 },
+		});
+		expect(result).toEqual({ x: 710, y: 40 });
+	});
+
 	it("centers the window when there is no anchor", () => {
 		const result = calculateWindowPosition({
 			anchor: undefined,

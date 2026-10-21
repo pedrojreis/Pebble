@@ -173,6 +173,10 @@ export class NativeWindow {
 				width: settings.windowWidth,
 				height: settings.windowHeight,
 				title: `${basename} — Pebble`,
+				// Prevent a white flash when the editor's web contents close.
+				backgroundColor: settings.themeMode === "light" ? "#ffffff" : "#0f1114",
+				// Panels accept input over fullscreen apps without activating Obsidian.
+				type: currentPlatform() === "darwin" ? "panel" : undefined,
 				frame: currentPlatform() === "darwin" ? false : undefined,
 				skipTaskbar: true,
 				show: false,
@@ -208,8 +212,10 @@ export class NativeWindow {
 			)}`;
 			await win.loadURL(editorDataUrl);
 
-			if (settings.windowPositions[currentPlatform()]) {
-				const { x, y } = settings.windowPositions[currentPlatform()]!;
+			const savedPosition = settings.windowPositions[currentPlatform()];
+			// Without a tray display to check, keep the saved-position fallback.
+			if (savedPosition && (!anchorBounds || !remote.screen)) {
+				const { x, y } = savedPosition;
 				win.setPosition(x, y, false);
 			} else {
 				this.positionNearTray(win, remote, anchorBounds, settings);
@@ -257,6 +263,7 @@ export class NativeWindow {
 			workArea,
 			winSize: { width: winWidth, height: winHeight },
 			offsets: { x: settings.trayOffsetX, y: settings.trayOffsetY },
+			savedPosition: settings.windowPositions[currentPlatform()],
 		});
 		win.setPosition(x, y, false);
 	}

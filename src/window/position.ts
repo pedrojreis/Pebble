@@ -1,4 +1,5 @@
 import type { ElectronRectangle } from "../electron/utils";
+import type { WindowPosition } from "../settings";
 
 const TRAY_GAP = 8;
 const SCREEN_MARGIN = 8;
@@ -8,6 +9,7 @@ export interface WindowPositionInput {
 	workArea: ElectronRectangle;
 	winSize: { width: number; height: number };
 	offsets: { x: number; y: number };
+	savedPosition?: WindowPosition;
 }
 
 export function calculateWindowPosition({
@@ -15,7 +17,19 @@ export function calculateWindowPosition({
 	workArea,
 	winSize: { width: winWidth, height: winHeight },
 	offsets,
-}: WindowPositionInput): { x: number; y: number } {
+	savedPosition,
+}: WindowPositionInput): WindowPosition {
+	// A position saved on another display must not override this tray click.
+	if (
+		savedPosition &&
+		savedPosition.x >= workArea.x &&
+		savedPosition.y >= workArea.y &&
+		savedPosition.x + winWidth <= workArea.x + workArea.width &&
+		savedPosition.y + winHeight <= workArea.y + workArea.height
+	) {
+		return savedPosition;
+	}
+
 	if (!anchor) {
 		return {
 			x: Math.round(workArea.x + (workArea.width - winWidth) / 2),

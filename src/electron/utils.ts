@@ -36,6 +36,8 @@ interface ElectronBrowserWindowOptions {
 	x?: number;
 	y?: number;
 	title?: string;
+	type?: "panel";
+	backgroundColor?: string;
 	show?: boolean;
 	frame?: boolean;
 	skipTaskbar?: boolean;
