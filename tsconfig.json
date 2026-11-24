@@ -1,6 +1,5 @@
 {
 	"compilerOptions": {
-		"baseUrl": "src",
 		"inlineSourceMap": true,
 		"inlineSources": true,
 		"module": "ESNext",
@@ -9,10 +8,11 @@
 		"noImplicitAny": true,
 		"noImplicitThis": true,
 		"noImplicitReturns": true,
-		"moduleResolution": "node",
+		"moduleResolution": "bundler",
 		"importHelpers": true,
 		"noUncheckedIndexedAccess": true,
 		"isolatedModules": true,
+		"types": ["node"],
 		"strictNullChecks": true,
 		"strictBindCallApply": true,
 		"allowSyntheticDefaultImports": true,
