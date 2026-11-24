@@ -11,6 +11,7 @@ Pebble adds a small, always-accessible writing window from your system tray/menu
 - **Anchored window** — opens near the tray/menu bar icon for quick access.
 - **Auto-close on blur** — closes when you click outside the pop-out window.
 - **Single-file focus** — choose one markdown note from your vault; Pebble reads and writes only that file.
+- **Live markdown** — headings, bold, italics, lists, tasks, quotes, code and links render as you type; the raw markdown reappears on the line you're editing. Select a checkbox to toggle a task, or a link to open it.
 - **Fast autosave** — edits are written back to disk automatically.
 - **Tray icon style** — choose between color and monochrome menu bar icons.
 - **Color mode** — choose a light or dark editor background.

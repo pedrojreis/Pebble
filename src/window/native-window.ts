@@ -302,6 +302,7 @@ export class NativeWindow {
 		if (!this.win || this.win.isDestroyed()) return;
 
 		const SAVE_PREFIX = "__pebble_save:";
+		const OPEN_PREFIX = "__pebble_open:";
 
 		const webContents = this.win.webContents;
 		(
@@ -311,12 +312,12 @@ export class NativeWindow {
 		).on(
 			"console-message",
 			(_event: unknown, _level: unknown, message: unknown) => {
-				if (
-					typeof message !== "string" ||
-					!message.startsWith(SAVE_PREFIX)
-				) {
+				if (typeof message !== "string") return;
+				if (message.startsWith(OPEN_PREFIX)) {
+					this.openExternalLink(message.slice(OPEN_PREFIX.length));
 					return;
 				}
+				if (!message.startsWith(SAVE_PREFIX)) return;
 				try {
 					const content: unknown = JSON.parse(
 						message.slice(SAVE_PREFIX.length),
@@ -329,6 +330,22 @@ export class NativeWindow {
 				}
 			},
 		);
+	}
+
+	/** Opens a link clicked in the editor; only web and mail links. */
+	private openExternalLink(payload: string): void {
+		try {
+			const raw: unknown = JSON.parse(payload);
+			if (typeof raw !== "string") return;
+			// GFM autolinks like `www.example.com` have no scheme.
+			const url = /^www\./i.test(raw) ? `https://${raw}` : raw;
+			if (/^(https?:|mailto:)/i.test(url)) {
+				// Obsidian routes window.open to the system browser.
+				window.open(url, "_blank");
+			}
+		} catch {
+			// Ignore malformed messages
+		}
 	}
 
 	private onEditorInput(content: string): void {

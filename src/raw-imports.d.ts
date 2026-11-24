@@ -8,7 +8,8 @@ declare module "*.css" {
 	export default value;
 }
 
-declare module "*.template.js" {
+/** The editor window script (src/editor/index.ts), bundled as a string. */
+declare module "pebble-editor-bundle" {
 	const value: string;
 	export default value;
 }

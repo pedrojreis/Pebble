@@ -1,10 +1,18 @@
 import editorTemplate from "../editor/editor-template.html";
 import editorStyles from "../editor/editor.css";
-import editorScriptTemplate from "../editor/editor-script.template.js";
+import editorBundle from "pebble-editor-bundle";
 import { PebbleThemeMode } from "../settings";
 
-function replaceToken(template: string, token: string, value: string): string {
-	return template.split(token).join(value);
+function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;");
+}
+
+/** JSON that is safe to place inside an inline `<script>`. */
+function toScriptLiteral(value: string): string {
+	return JSON.stringify(value).replace(/</g, "\u003c");
 }
 
 /**
@@ -17,35 +25,18 @@ export function buildEditorHTML(
 	themeMode: PebbleThemeMode,
 ): string {
 	const normalizedTheme = themeMode === "light" ? "light" : "dark";
-	const themeBodyAttr = `data-pebble-theme="${normalizedTheme}"`;
-	const escapedNoteTitleForHtml = noteTitle
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;");
-	const serializedInitialContent = JSON.stringify(initialContent);
-	const escapedInitialContentForTextarea = initialContent
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;");
-	const editorScript = editorScriptTemplate
-		.split("__INITIAL_CONTENT__")
-		.join(serializedInitialContent);
+	const tokens: Record<string, string> = {
+		EDITOR_STYLE: editorStyles,
+		THEME_BODY_ATTR: `data-pebble-theme="${normalizedTheme}"`,
+		NOTE_TITLE_HIDDEN_ATTR: showNoteTitle ? "" : "hidden",
+		NOTE_TITLE: escapeHtml(noteTitle),
+		INITIAL_CONTENT: toScriptLiteral(initialContent),
+		EDITOR_SCRIPT: editorBundle,
+	};
 
-	let html = editorTemplate;
-	html = replaceToken(html, "__EDITOR_STYLE__", editorStyles);
-	html = replaceToken(html, "__THEME_BODY_ATTR__", themeBodyAttr);
-	html = replaceToken(
-		html,
-		"__NOTE_TITLE_HIDDEN_ATTR__",
-		showNoteTitle ? "" : "hidden",
+	// Single pass, so token-like text inside the note or bundle is left alone.
+	return editorTemplate.replace(
+		/__([A-Z_]+)__/g,
+		(token: string, name: string) => tokens[name] ?? token,
 	);
-	html = replaceToken(
-		html,
-		"__INITIAL_CONTENT__",
-		escapedInitialContentForTextarea,
-	);
-	html = replaceToken(html, "__NOTE_TITLE__", escapedNoteTitleForHtml);
-	html = replaceToken(html, "__EDITOR_SCRIPT__", editorScript);
-
-	return html;
 }

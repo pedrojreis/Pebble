@@ -12,16 +12,13 @@
 			<div id="note-title" aria-hidden="true" __NOTE_TITLE_HIDDEN_ATTR__>
 				__NOTE_TITLE__
 			</div>
-			<textarea
-				id="editor"
-				spellcheck="true"
-				placeholder="Start writing..."
-			>
-__INITIAL_CONTENT__</textarea
-			>
+			<div id="editor"></div>
 		</main>
 		<script>
-			__EDITOR_SCRIPT__;
+			window.__pebbleInitialContent = __INITIAL_CONTENT__;
+		</script>
+		<script>
+			__EDITOR_SCRIPT__
 		</script>
 	</body>
 </html>
