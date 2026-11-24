@@ -28,6 +28,17 @@ export default tseslint.config(
 			"no-undef": "off",
 		},
 	},
+	{
+		// The editor runs in its own BrowserWindow, outside Obsidian: no
+		// createEl/activeDocument there, and console.log is its IPC channel.
+		files: ["src/editor/**/*.ts"],
+		rules: {
+			"no-console": "off",
+			"obsidianmd/rule-custom-message": "off",
+			"obsidianmd/prefer-active-doc": "off",
+			"obsidianmd/prefer-create-el": "off",
+		},
+	},
 	globalIgnores([
 		"node_modules",
 		"dist",

@@ -15,18 +15,27 @@ body {
 	--pebble-editor-bg-color: #0f1114;
 	--pebble-editor-text-color: #e6e9ee;
 	--pebble-editor-muted-color: #9aa3b2;
+	--pebble-editor-accent-color: #7aa2f7;
+	--pebble-editor-code-bg: rgba(255, 255, 255, 0.06);
+	--pebble-editor-rule-color: rgba(255, 255, 255, 0.14);
 }
 
 body[data-pebble-theme="light"] {
 	--pebble-editor-bg-color: #ffffff;
 	--pebble-editor-text-color: #1f2328;
 	--pebble-editor-muted-color: #68707d;
+	--pebble-editor-accent-color: #2563eb;
+	--pebble-editor-code-bg: rgba(0, 0, 0, 0.05);
+	--pebble-editor-rule-color: rgba(0, 0, 0, 0.12);
 }
 
 body[data-pebble-theme="dark"] {
 	--pebble-editor-bg-color: #0f1114;
 	--pebble-editor-text-color: #e6e9ee;
 	--pebble-editor-muted-color: #9aa3b2;
+	--pebble-editor-accent-color: #7aa2f7;
+	--pebble-editor-code-bg: rgba(255, 255, 255, 0.06);
+	--pebble-editor-rule-color: rgba(255, 255, 255, 0.14);
 }
 
 body {
@@ -83,38 +92,182 @@ body {
 	z-index: 1;
 	width: 100%;
 	height: 100%;
-	border: none;
-	outline: none;
-	resize: none;
-	padding: 24px;
-	font-family: inherit;
+}
+
+/* CodeMirror shell */
+
+#editor .cm-editor {
+	height: 100%;
+	background: transparent;
+	color: inherit;
 	font-size: 15px;
 	line-height: 1.75;
 	letter-spacing: 0.003em;
-	background: transparent;
-	color: inherit;
-	tab-size: 4;
-	overflow: auto;
+}
+
+#editor .cm-editor.cm-focused {
+	outline: none;
+}
+
+#editor .cm-scroller {
+	font-family: inherit;
+	line-height: inherit;
 	scrollbar-width: none;
 	-ms-overflow-style: none;
 }
 
-#editor::-webkit-scrollbar {
+#editor .cm-scroller::-webkit-scrollbar {
 	width: 0;
 	height: 0;
 	display: none;
 }
 
-#editor::placeholder {
+#editor .cm-content {
+	padding: 24px;
+	caret-color: var(--pebble-editor-text-color);
+	tab-size: 4;
+}
+
+#editor .cm-line {
+	padding: 0;
+}
+
+#editor .cm-placeholder {
 	color: var(--pebble-editor-muted-color);
 }
 
-@media (max-width: 560px) {
-	body {
-		padding: 0;
-	}
+/* Raw markdown shown on the line being edited */
 
-	#editor {
+.pb-syntax {
+	color: var(--pebble-editor-muted-color);
+	opacity: 0.7;
+}
+
+/* Headings */
+
+#editor .cm-line.pb-h {
+	font-weight: 700;
+	line-height: 1.4;
+	padding-top: 0.35em;
+}
+
+#editor .cm-line.pb-h1 {
+	font-size: 1.6em;
+}
+
+#editor .cm-line.pb-h2 {
+	font-size: 1.35em;
+}
+
+#editor .cm-line.pb-h3 {
+	font-size: 1.15em;
+}
+
+/* Inline */
+
+.pb-strong {
+	font-weight: 700;
+}
+
+.pb-em {
+	font-style: italic;
+}
+
+.pb-strike {
+	text-decoration: line-through;
+}
+
+.pb-code {
+	font-family: var(--font-monospace, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+	font-size: 0.88em;
+	background: var(--pebble-editor-code-bg);
+	border-radius: 4px;
+	padding: 0.1em 0.3em;
+}
+
+.pb-link {
+	color: var(--pebble-editor-accent-color);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.pb-link[data-href] {
+	cursor: pointer;
+}
+
+/* Lists and tasks */
+
+.pb-bullet {
+	color: var(--pebble-editor-muted-color);
+}
+
+.pb-list-num {
+	color: var(--pebble-editor-muted-color);
+}
+
+.pb-checkbox-wrap {
+	display: inline-block;
+	margin-right: 0.4em;
+}
+
+.pb-checkbox {
+	width: 0.95em;
+	height: 0.95em;
+	margin: 0;
+	vertical-align: -0.1em;
+	cursor: pointer;
+	accent-color: var(--pebble-editor-accent-color);
+}
+
+.pb-task-done {
+	color: var(--pebble-editor-muted-color);
+	text-decoration: line-through;
+}
+
+/* Blockquotes */
+
+#editor .cm-line.pb-quote {
+	border-left: 3px solid var(--pebble-editor-rule-color);
+	padding-left: 12px;
+	color: var(--pebble-editor-muted-color);
+}
+
+/* Code blocks */
+
+#editor .cm-line.pb-codeblock {
+	font-family: var(--font-monospace, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+	font-size: 0.88em;
+	background: var(--pebble-editor-code-bg);
+	padding: 0 12px;
+}
+
+#editor .cm-line.pb-codeblock-start {
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
+}
+
+#editor .cm-line.pb-codeblock-end {
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
+}
+
+/* Fence lines collapse to a little padding when not being edited */
+#editor .cm-line.pb-fence-hidden {
+	font-size: 6px;
+	line-height: 1;
+}
+
+/* Horizontal rule */
+
+.pb-hr {
+	display: inline-block;
+	width: 100%;
+	vertical-align: middle;
+	border-top: 1px solid var(--pebble-editor-rule-color);
+}
+
+@media (max-width: 560px) {
+	#editor .cm-content {
 		padding: 18px;
 	}
 }
