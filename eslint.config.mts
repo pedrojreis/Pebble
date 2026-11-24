@@ -13,6 +13,7 @@ export default tseslint.config(
 			parserOptions: {
 				projectService: {
 					allowDefaultProject: ["eslint.config.mts", "manifest.json"],
+					defaultProject: "tsconfig.json",
 				},
 				tsconfigRootDir: import.meta.dirname,
 				extraFileExtensions: [".json"],
